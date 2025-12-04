@@ -1,0 +1,29 @@
+query GetCurrentUser {
+  getCurrentUser {
+    id
+    name
+    email
+    createdAt
+    updatedAt
+  }
+}
+
+query GetUser($userId: ID!) {
+  getUser(userId: $userId) {
+    id
+    name
+    email
+    createdAt
+    updatedAt
+  }
+}
+
+query GetUsers($offset: Int, $limit: Int) {
+  getUsers(offset: $offset, limit: $limit) {
+    id
+    name
+    email
+    createdAt
+    updatedAt
+  }
+}

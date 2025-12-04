@@ -1,65 +1,106 @@
+'use client';
+
 import Image from "next/image";
+import { AuthButton } from "@/components/auth/auth-button";
+import { useSession } from "next-auth/react";
 
 export default function Home() {
+  const { data: session } = useSession();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-black">
+      <main className="flex flex-1 items-center justify-center px-4">
+        <div className="w-full max-w-4xl space-y-8 text-center">
+          <div className="space-y-4">
+            <h1 className="text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-6xl">
+              Welcome to{" "}
+              <span className="bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">
+                Fitness Devil
+              </span>
+            </h1>
+            <p className="mx-auto max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
+              Your personal fitness tracking application powered by Keycloak authentication
+              and GraphQL backend.
+            </p>
+          </div>
+
+          {session ? (
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-lg">
+              <h2 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                Welcome back, {session.user?.name || session.user?.email}!
+              </h2>
+              <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                You're successfully authenticated with Keycloak
+              </p>
+              {session.user?.roles && session.user.roles.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {session.user.roles.map((role: string) => (
+                    <span
+                      key={role}
+                      className="inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/20 px-3 py-1 text-sm font-medium text-orange-800 dark:text-orange-200"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-zinc-600 dark:text-zinc-400 mb-2">
+                Get started by creating an account or signing in
+              </p>
+              <div className="flex gap-4">
+                <a
+                  href="/auth/signup"
+                  className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+                >
+                  Get Started
+                </a>
+                <a
+                  href="/auth/signin"
+                  className="inline-flex h-11 items-center justify-center rounded-md border border-input bg-background px-8 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                >
+                  Sign In
+                </a>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-4 pt-8 sm:grid-cols-3">
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                Keycloak Auth
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Enterprise-grade authentication with role-based access control
+              </p>
+            </div>
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                GraphQL API
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Powered by Quarkus backend with type-safe queries
+              </p>
+            </div>
+            <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
+              <h3 className="font-semibold text-zinc-900 dark:text-zinc-50 mb-2">
+                Fitness Tracking
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Track your workouts, progress, and achieve your goals
+              </p>
+            </div>
+          </div>
         </div>
       </main>
+
+      <footer className="w-full border-t border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-black/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
+          <p>Built with Next.js, Keycloak, and Quarkus</p>
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,0 +1,38 @@
+# User Types
+type UserResponse {
+  id: ID!
+  name: String!
+  email: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+input UserRequest {
+  name: String!
+  email: String!
+  password: String!
+}
+
+input LoginRequest {
+  email: String!
+  password: String!
+}
+
+type LoginResponse {
+  token: String!
+  user: UserResponse!
+}
+
+# Queries
+type Query {
+  getUser(userId: ID!): UserResponse
+  getUsers(offset: Int = 0, limit: Int = 20): [UserResponse!]!
+  getCurrentUser: UserResponse
+  getNutritionPlan: String # Placeholder - update based on actual nutrition schema
+}
+
+# Mutations
+type Mutation {
+  createUser(userRequest: UserRequest!): UserResponse!
+  login(loginRequest: LoginRequest!): LoginResponse!
+}

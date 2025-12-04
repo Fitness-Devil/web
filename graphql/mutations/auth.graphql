@@ -1,0 +1,22 @@
+mutation Login($loginRequest: LoginRequest!) {
+  login(loginRequest: $loginRequest) {
+    token
+    user {
+      id
+      name
+      email
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+mutation CreateUser($userRequest: UserRequest!) {
+  createUser(userRequest: $userRequest) {
+    id
+    name
+    email
+    createdAt
+    updatedAt
+  }
+}
