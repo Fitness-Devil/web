@@ -1,0 +1,36 @@
+name: Next.js Docker CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to ACR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build image
+        run: |
+          docker build \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/fitnessdevil/frontend:${{ github.sha }} \
+            -t ${{ secrets.ACR_LOGIN_SERVER }}/fitnessdevil/frontend:latest \
+            .
+
+      - name: Push image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitnessdevil/frontend:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/fitnessdevil/frontend:latest
