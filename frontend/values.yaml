@@ -1,0 +1,62 @@
+replicaCount: 1
+
+image:
+  repository: fitnessdevil.azurecr.io/fitnessdevil/frontend
+  tag: "latest"
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 3000
+
+serviceAccount:
+  create: false
+  automount: false
+  annotations: {}
+  name: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+httpRoute:
+  enabled: false
+
+imagePullSecrets:
+  - name: acr-pull
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "100m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+autoscaling:
+  enabled: false
+
+env:
+  NEXT_PUBLIC_API_URL: "http://fitnessdevil-core:8080"
+  NEXT_PUBLIC_GRAPHQL_URL: "http://fitnessdevil-core:8080/graphql"
+  NEXTAUTH_URL: "http://localhost:3000"
+
+existingSecret:
+  name: "frontend-secrets"
