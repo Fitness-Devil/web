@@ -1,0 +1,18 @@
+query GetDailyNutritionPlan($days: Int, $userId: String) {
+  getDailyNutritionPlan(days: $days, userId: $userId) {
+    userId
+    meals {
+      name
+      type
+      calories
+    }
+  }
+}
+
+query CalculateCalories($userId: String) {
+  calculateCalories(userId: $userId) {
+    basalMetabolicRate
+    maintenanceCalories
+    goalCalories
+  }
+}

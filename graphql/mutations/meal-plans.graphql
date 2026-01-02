@@ -1,0 +1,85 @@
+mutation CreateMealPlan(
+  $userId: String!
+  $name: String!
+  $startDate: Date!
+  $endDate: Date!
+) {
+  createMealPlan(
+    userId: $userId
+    name: $name
+    startDate: $startDate
+    endDate: $endDate
+  ) {
+    id
+    name
+    startDate
+    endDate
+    isActive
+    userId
+    created_at
+    updatedAt
+  }
+}
+
+mutation UpdateMealPlan(
+  $id: String!
+  $name: String
+  $startDate: Date
+  $endDate: Date
+  $isActive: Boolean
+) {
+  updateMealPlan(
+    id: $id
+    name: $name
+    startDate: $startDate
+    endDate: $endDate
+    isActive: $isActive
+  ) {
+    id
+    name
+    startDate
+    endDate
+    isActive
+    userId
+    created_at
+    updatedAt
+  }
+}
+
+mutation DeleteMealPlan($id: String!) {
+  deleteMealPlan(id: $id)
+}
+
+mutation AddMealToPlan(
+  $mealPlanId: String!
+  $date: Date!
+  $mealType: MealType!
+  $recipeId: String!
+  $notes: String
+) {
+  addMealToPlan(
+    mealPlanId: $mealPlanId
+    date: $date
+    mealType: $mealType
+    recipeId: $recipeId
+    notes: $notes
+  ) {
+    id
+    mealType
+    orderIndex
+    notes
+    recipe {
+      id
+      name
+      calories
+      protein
+      carbs
+      fats
+      mealType
+    }
+  }
+}
+
+mutation RemoveMealFromPlan($mealId: String!) {
+  removeMealFromPlan(mealId: $mealId)
+}

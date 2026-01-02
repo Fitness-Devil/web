@@ -1,0 +1,67 @@
+query GetAllRecipes(
+  $limit: Int = 20
+  $offset: Int = 0
+  $search: String
+  $mealType: MealType
+  $maxCalories: Int
+) {
+  getAllRecipes(
+    limit: $limit
+    offset: $offset
+    search: $search
+    mealType: $mealType
+    maxCalories: $maxCalories
+  ) {
+    recipes {
+      id
+      name
+      description
+      calories
+      protein
+      carbs
+      fats
+      mealType
+      imageUrl
+      servings
+      ingredients
+      instructions
+    }
+    totalCount
+    hasMore
+  }
+}
+
+query GetRecipe($id: String!) {
+  getRecipe(id: $id) {
+    id
+    name
+    description
+    calories
+    protein
+    carbs
+    fats
+    mealType
+    imageUrl
+    servings
+    ingredients
+    instructions
+    createdBy
+    created_at
+    updatedAt
+  }
+}
+
+query GetRecipesByMealType($mealType: MealType!) {
+  getRecipesByMealType(mealType: $mealType) {
+    id
+    name
+    description
+    calories
+    protein
+    carbs
+    fats
+    mealType
+    imageUrl
+    servings
+  }
+}
