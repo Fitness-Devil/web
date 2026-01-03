@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
     console.log('[GraphQL Proxy] Request body:', JSON.stringify(body, null, 2));
 
     // Get the backend GraphQL URL
-    const graphqlUrl = process.env.NEXT_PUBLIC_GRAPHQL_URL || 'http://localhost:8080/graphql';
+    const graphqlUrl =
+      process.env.GRAPHQL_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_GRAPHQL_URL ||
+      'http://localhost:8080/graphql';
     console.log('[GraphQL Proxy] Backend URL:', graphqlUrl);
 
     // Forward the request to the backend GraphQL server
