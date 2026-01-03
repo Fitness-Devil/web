@@ -6,14 +6,46 @@ import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-const GET_DAILY_NUTRITION_PLAN = gql`
-  query GetDailyNutritionPlan($days: Int, $userId: String) {
-    getDailyNutritionPlan(days: $days, userId: $userId) {
-      userId
-      meals {
-        name
-        type
-        calories
+const GET_ACTIVE_MEAL_PLAN = gql`
+  query GetMealPlansForNutrition($userId: String!) {
+    getMealPlans(userId: $userId) {
+      id
+      name
+      startDate
+      endDate
+      isActive
+    }
+  }
+`;
+
+const GET_MEAL_PLAN_DETAILS = gql`
+  query GetMealPlanDetails($id: String!) {
+    getMealPlan(id: $id) {
+      id
+      name
+      startDate
+      endDate
+      isActive
+      avgDailyCalories
+      totalCalories
+      days {
+        id
+        date
+        totalCalories
+        meals {
+          id
+          mealType
+          recipe {
+            id
+            name
+            nutrition {
+              calories
+              protein
+              carbs
+              fats
+            }
+          }
+        }
       }
     }
   }
@@ -30,14 +62,36 @@ const CALCULATE_CALORIES = gql`
 `;
 
 interface Meal {
-  name: string;
-  type: string;
-  calories: number;
+  id: string;
+  mealType: string;
+  recipe: {
+    id: string;
+    name: string;
+    nutrition: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fats: number;
+    };
+  };
 }
 
-interface NutritionPlan {
-  userId: string;
+interface Day {
+  id: string;
+  date: string;
+  totalCalories: number;
   meals: Meal[];
+}
+
+interface MealPlan {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  avgDailyCalories: number;
+  totalCalories: number;
+  days: Day[];
 }
 
 interface CalorieCalc {
@@ -52,19 +106,23 @@ export default function NutritionDashboard() {
   const { data: session, status } = useSession();
   const [viewMode, setViewMode] = useState<ViewMode>('today');
 
-  // Debug: Log session info
-  console.log('Session:', session);
-  console.log('Session status:', status);
-  console.log('User ID:', session?.user?.id);
-
-  const { data: nutritionData, loading: nutritionLoading, error: nutritionError } = useQuery<{
-    getDailyNutritionPlan: NutritionPlan;
-  }>(GET_DAILY_NUTRITION_PLAN, {
-    variables: {
-      days: viewMode === 'today' ? 1 : 7,
-      userId: session?.user?.id,
-    },
+  // Get user's meal plans
+  const { data: mealPlansData, loading: plansLoading } = useQuery<{
+    getMealPlans: Array<{ id: string; isActive: boolean }>;
+  }>(GET_ACTIVE_MEAL_PLAN, {
+    variables: { userId: session?.user?.id },
     skip: !session?.user?.id,
+  });
+
+  // Find active meal plan
+  const activePlan = mealPlansData?.getMealPlans?.find(p => p.isActive);
+
+  // Get detailed meal plan data
+  const { data: mealPlanData, loading: mealPlanLoading, error: mealPlanError } = useQuery<{
+    getMealPlan: MealPlan;
+  }>(GET_MEAL_PLAN_DETAILS, {
+    variables: { id: activePlan?.id },
+    skip: !activePlan?.id,
   });
 
   const { data: calorieData, loading: calorieLoading } = useQuery<{
@@ -76,11 +134,7 @@ export default function NutritionDashboard() {
     skip: !session?.user?.id,
   });
 
-  // Log errors for debugging
-  if (nutritionError) {
-    console.error('Nutrition Error:', nutritionError);
-    console.error('Full error object:', JSON.stringify(nutritionError, null, 2));
-  }
+  const loading = plansLoading || mealPlanLoading || calorieLoading;
 
   if (!session) {
     return (
@@ -95,7 +149,7 @@ export default function NutritionDashboard() {
     );
   }
 
-  if (nutritionLoading || calorieLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -106,27 +160,14 @@ export default function NutritionDashboard() {
     );
   }
 
-  if (nutritionError) {
+  if (mealPlanError) {
     return (
       <div className="flex items-center justify-center min-h-screen p-4">
         <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>Error Loading Nutrition Plan</CardTitle>
-            <CardDescription className="text-red-600 space-y-2">
-              <p className="font-semibold">{nutritionError.message}</p>
-              <div className="mt-4 p-4 bg-gray-100 rounded text-sm text-gray-700">
-                <p><strong>Debug Info:</strong></p>
-                <p>GraphQL URL: {process.env.NEXT_PUBLIC_GRAPHQL_URL}</p>
-                <p>User ID: {session?.user?.id || 'Not available'}</p>
-                <p>User Email: {session?.user?.email || 'Not available'}</p>
-                <p className="mt-2"><strong>Possible causes:</strong></p>
-                <ul className="list-disc ml-4 mt-1">
-                  <li>Backend server is not running (check port 8080)</li>
-                  <li>CORS configuration issue</li>
-                  <li>Authentication token issue</li>
-                  <li>Network connectivity problem</li>
-                </ul>
-              </div>
+            <CardTitle>Error Loading Meal Plan</CardTitle>
+            <CardDescription className="text-red-600">
+              {mealPlanError.message}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -134,26 +175,23 @@ export default function NutritionDashboard() {
     );
   }
 
-  const allMeals = nutritionData?.getDailyNutritionPlan?.meals || [];
+  const mealPlan = mealPlanData?.getMealPlan;
   const calorieInfo = calorieData?.calculateCalories;
 
-  // Calculate meals per day
-  const mealsPerDay = viewMode === 'weekly' ? Math.ceil(allMeals.length / 7) : allMeals.length;
-  const todaysMeals = viewMode === 'today' ? allMeals : allMeals.slice(0, mealsPerDay);
+  // Get today's date
+  const today = new Date().toISOString().split('T')[0];
 
-  // Group weekly meals by day
-  const weeklyMeals = viewMode === 'weekly' ? Array.from({ length: 7 }, (_, dayIndex) => {
-    const startIndex = dayIndex * mealsPerDay;
-    const endIndex = startIndex + mealsPerDay;
-    return allMeals.slice(startIndex, endIndex);
-  }) : [];
+  // Find today's day or use first 7 days for weekly view
+  const todaysDay = mealPlan?.days?.find(d => d.date === today);
+  const weekDays = mealPlan?.days?.slice(0, 7) || [];
 
-  const totalCalories = todaysMeals.reduce((sum, meal) => sum + meal.calories, 0);
-  const weeklyAvgCalories = viewMode === 'weekly' ? Math.round(allMeals.reduce((sum, m) => sum + m.calories, 0) / 7) : 0;
+  const todaysMeals = todaysDay?.meals || [];
+  const totalCalories = todaysDay?.totalCalories || 0;
+  const weeklyAvgCalories = mealPlan?.avgDailyCalories || 0;
 
   // Group meals by type (for today view)
   const mealsByType = todaysMeals.reduce((acc, meal) => {
-    const type = meal.type || 'Other';
+    const type = meal.mealType || 'Other';
     if (!acc[type]) acc[type] = [];
     acc[type].push(meal);
     return acc;
@@ -290,12 +328,21 @@ export default function NutritionDashboard() {
               Today&apos;s Meals
             </h2>
 
-            {todaysMeals.length === 0 ? (
+            {!mealPlan ? (
               <Card className="border-2 border-dashed">
                 <CardHeader>
-                  <CardTitle>No Meals Planned</CardTitle>
+                  <CardTitle>No Active Meal Plan</CardTitle>
                   <CardDescription>
-                    You don&apos;t have any meals planned for today. Contact your nutritionist or set up your nutrition profile.
+                    You don&apos;t have an active meal plan. Create one in the Meal Planner to see your nutrition data here.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : todaysMeals.length === 0 ? (
+              <Card className="border-2 border-dashed">
+                <CardHeader>
+                  <CardTitle>No Meals Planned for Today</CardTitle>
+                  <CardDescription>
+                    Add meals to today in your meal plan to see them here.
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -307,19 +354,35 @@ export default function NutritionDashboard() {
                     {type}
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {typeMeals.map((meal, index) => (
-                      <Card key={`${type}-${index}`} className="hover:shadow-xl hover:scale-105 transition-all duration-200 border-l-4 border-l-blue-500">
+                    {typeMeals.map((meal) => (
+                      <Card key={meal.id} className="hover:shadow-xl hover:scale-105 transition-all duration-200 border-l-4 border-l-blue-500">
                         <CardHeader>
                           <CardTitle className="text-lg leading-tight">
-                            {meal.name || 'Unnamed Meal'}
+                            {meal.recipe.name}
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                              {meal.calories}
-                            </p>
-                            <p className="text-sm text-gray-600 font-medium">kcal</p>
+                          <div className="space-y-2">
+                            <div className="flex items-baseline gap-2">
+                              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                                {meal.recipe.nutrition.calories}
+                              </p>
+                              <p className="text-sm text-gray-600 font-medium">kcal</p>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 text-xs">
+                              <div className="text-center">
+                                <p className="font-bold text-green-600">{meal.recipe.nutrition.protein}g</p>
+                                <p className="text-gray-500">Protein</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-bold text-blue-600">{meal.recipe.nutrition.carbs}g</p>
+                                <p className="text-gray-500">Carbs</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="font-bold text-orange-600">{meal.recipe.nutrition.fats}g</p>
+                                <p className="text-gray-500">Fats</p>
+                              </div>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -336,56 +399,90 @@ export default function NutritionDashboard() {
               Weekly Meal Plan
             </h2>
 
-            <div className="space-y-8">
-              {weeklyMeals.map((dayMeals, dayIndex) => {
-                const dayCalories = dayMeals.reduce((sum, meal) => sum + meal.calories, 0);
-                const mealsByTypeForDay = dayMeals.reduce((acc, meal) => {
-                  const type = meal.type || 'Other';
-                  if (!acc[type]) acc[type] = [];
-                  acc[type].push(meal);
-                  return acc;
-                }, {} as Record<string, Meal[]>);
+            {!mealPlan ? (
+              <Card className="border-2 border-dashed">
+                <CardHeader>
+                  <CardTitle>No Active Meal Plan</CardTitle>
+                  <CardDescription>
+                    You don&apos;t have an active meal plan. Create one in the Meal Planner to see your nutrition data here.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ) : (
+              <div className="space-y-8">
+                {weekDays.map((day, dayIndex) => {
+                  const mealsByTypeForDay = day.meals.reduce((acc, meal) => {
+                    const type = meal.mealType || 'Other';
+                    if (!acc[type]) acc[type] = [];
+                    acc[type].push(meal);
+                    return acc;
+                  }, {} as Record<string, Meal[]>);
 
-                return (
-                  <Card key={dayIndex} className="overflow-hidden border-2 hover:border-blue-300 transition-colors">
-                    <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2">
-                      <div className="flex justify-between items-center">
-                        <CardTitle className="text-2xl">
-                          {dayNames[dayIndex]}
-                        </CardTitle>
-                        <div className="text-right">
-                          <p className="text-3xl font-bold text-blue-600">{dayCalories}</p>
-                          <p className="text-sm text-gray-600">kcal total</p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="space-y-6">
-                        {Object.entries(mealsByTypeForDay).map(([type, typeMeals]) => (
-                          <div key={type}>
-                            <h4 className="text-md font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                              <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                              {type}
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {typeMeals.map((meal, mealIndex) => (
-                                <div
-                                  key={mealIndex}
-                                  className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition-all"
-                                >
-                                  <p className="font-medium text-gray-900 mb-2 leading-tight">{meal.name}</p>
-                                  <p className="text-2xl font-bold text-blue-600">{meal.calories} <span className="text-sm text-gray-600">kcal</span></p>
-                                </div>
-                              ))}
-                            </div>
+                  const dayDate = new Date(day.date);
+                  const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+                  return (
+                    <Card key={day.id} className="overflow-hidden border-2 hover:border-blue-300 transition-colors">
+                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <CardTitle className="text-2xl">{dayName}</CardTitle>
+                            <CardDescription>{dayDate.toLocaleDateString()}</CardDescription>
                           </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+                          <div className="text-right">
+                            <p className="text-3xl font-bold text-blue-600">{day.totalCalories}</p>
+                            <p className="text-sm text-gray-600">kcal total</p>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        {day.meals.length === 0 ? (
+                          <p className="text-gray-500 text-center py-4">No meals planned for this day</p>
+                        ) : (
+                          <div className="space-y-6">
+                            {Object.entries(mealsByTypeForDay).map(([type, typeMeals]) => (
+                              <div key={type}>
+                                <h4 className="text-md font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                  <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                                  {type}
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {typeMeals.map((meal) => (
+                                    <div
+                                      key={meal.id}
+                                      className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition-all"
+                                    >
+                                      <p className="font-medium text-gray-900 mb-2 leading-tight">{meal.recipe.name}</p>
+                                      <p className="text-2xl font-bold text-blue-600">
+                                        {meal.recipe.nutrition.calories} <span className="text-sm text-gray-600">kcal</span>
+                                      </p>
+                                      <div className="grid grid-cols-3 gap-1 text-xs mt-2">
+                                        <div>
+                                          <p className="font-bold text-green-600">{meal.recipe.nutrition.protein}g</p>
+                                          <p className="text-gray-500">P</p>
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-blue-600">{meal.recipe.nutrition.carbs}g</p>
+                                          <p className="text-gray-500">C</p>
+                                        </div>
+                                        <div>
+                                          <p className="font-bold text-orange-600">{meal.recipe.nutrition.fats}g</p>
+                                          <p className="text-gray-500">F</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

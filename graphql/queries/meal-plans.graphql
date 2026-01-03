@@ -1,12 +1,12 @@
-query GetUserMealPlans($userId: String!) {
-  getUserMealPlans(userId: $userId) {
+query GetMealPlans($userId: String!) {
+  getMealPlans(userId: $userId) {
     id
     name
     startDate
     endDate
     isActive
     userId
-    created_at
+    createdAt
     updatedAt
   }
 }
@@ -33,44 +33,15 @@ query GetMealPlan($id: String!) {
           id
           name
           description
-          calories
-          protein
-          carbs
-          fats
+          nutrition {
+            calories
+            protein
+            carbs
+            fats
+          }
           mealType
           imageUrl
         }
-      }
-    }
-  }
-}
-
-query GetMealsForDateRange(
-  $userId: String!
-  $startDate: Date!
-  $endDate: Date!
-) {
-  getMealsForDateRange(
-    userId: $userId
-    startDate: $startDate
-    endDate: $endDate
-  ) {
-    id
-    date
-    totalCalories
-    meals {
-      id
-      mealType
-      orderIndex
-      notes
-      recipe {
-        id
-        name
-        calories
-        protein
-        carbs
-        fats
-        mealType
       }
     }
   }

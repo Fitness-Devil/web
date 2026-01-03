@@ -2,14 +2,30 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@apollo/client/react';
+import { gql } from '@apollo/client';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const CREATE_MEAL_PLAN = gql`
+  mutation CreateMealPlan($input: CreateMealPlanInput!) {
+    createMealPlan(input: $input) {
+      id
+      name
+      startDate
+      endDate
+      isActive
+    }
+  }
+`;
+
 export default function NewMealPlanPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -18,15 +34,45 @@ export default function NewMealPlanPage() {
     description: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [createMealPlan, { loading, error }] = useMutation(CREATE_MEAL_PLAN, {
+    onCompleted: (data) => {
+      console.log('Meal plan created:', data.createMealPlan);
+      alert('Meal plan created successfully!');
+      // Redirect to the meal planner list
+      router.push('/dashboard/meal-planner');
+    },
+    onError: (error) => {
+      console.error('Error creating meal plan:', error);
+      const errorMsg = error.message.includes('foreign key')
+        ? 'You need to set up your nutrition profile first. Go to Settings → Nutrition Profile.'
+        : error.message;
+      alert(`Failed to create meal plan: ${errorMsg}`);
+    },
+    refetchQueries: ['GetMealPlans'], // Refresh the meal plans list
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // TODO: Replace with GraphQL mutation
-    console.log('Creating meal plan:', formData);
+    if (!session?.user?.id) {
+      alert('You must be logged in to create a meal plan');
+      return;
+    }
 
-    // For now, just redirect to the meal planner list
-    // In the future, redirect to the newly created plan's editor
-    router.push('/dashboard/meal-planner');
+    try {
+      await createMealPlan({
+        variables: {
+          input: {
+            userId: session.user.id,
+            name: formData.name,
+            startDate: formData.startDate,
+            endDate: formData.endDate,
+          },
+        },
+      });
+    } catch (err) {
+      console.error('Mutation error:', err);
+    }
   };
 
   const handleChange = (field: string, value: string | number) => {
@@ -231,9 +277,9 @@ export default function NewMealPlanPage() {
           <Button
             type="submit"
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={!formData.name || !formData.startDate || !formData.endDate}
+            disabled={!formData.name || !formData.startDate || !formData.endDate || loading}
           >
-            Create Meal Plan
+            {loading ? 'Creating...' : 'Create Meal Plan'}
           </Button>
         </div>
       </form>

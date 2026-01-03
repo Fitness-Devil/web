@@ -1,47 +1,25 @@
-mutation CreateMealPlan(
-  $userId: String!
-  $name: String!
-  $startDate: Date!
-  $endDate: Date!
-) {
-  createMealPlan(
-    userId: $userId
-    name: $name
-    startDate: $startDate
-    endDate: $endDate
-  ) {
+mutation CreateMealPlan($input: CreateMealPlanInput!) {
+  createMealPlan(input: $input) {
     id
     name
     startDate
     endDate
     isActive
     userId
-    created_at
+    createdAt
     updatedAt
   }
 }
 
-mutation UpdateMealPlan(
-  $id: String!
-  $name: String
-  $startDate: Date
-  $endDate: Date
-  $isActive: Boolean
-) {
-  updateMealPlan(
-    id: $id
-    name: $name
-    startDate: $startDate
-    endDate: $endDate
-    isActive: $isActive
-  ) {
+mutation UpdateMealPlan($input: UpdateMealPlanInput!) {
+  updateMealPlan(input: $input) {
     id
     name
     startDate
     endDate
     isActive
     userId
-    created_at
+    createdAt
     updatedAt
   }
 }
@@ -50,20 +28,8 @@ mutation DeleteMealPlan($id: String!) {
   deleteMealPlan(id: $id)
 }
 
-mutation AddMealToPlan(
-  $mealPlanId: String!
-  $date: Date!
-  $mealType: MealType!
-  $recipeId: String!
-  $notes: String
-) {
-  addMealToPlan(
-    mealPlanId: $mealPlanId
-    date: $date
-    mealType: $mealType
-    recipeId: $recipeId
-    notes: $notes
-  ) {
+mutation AddMealToPlan($input: AddMealInput!) {
+  addMealToPlan(input: $input) {
     id
     mealType
     orderIndex
@@ -71,10 +37,12 @@ mutation AddMealToPlan(
     recipe {
       id
       name
-      calories
-      protein
-      carbs
-      fats
+      nutrition {
+        calories
+        protein
+        carbs
+        fats
+      }
       mealType
     }
   }
