@@ -73,7 +73,15 @@ export default function MealPlannerPage() {
     skip: !session?.user?.id,
   });
 
-  const [createMealPlan, { loading: duplicating }] = useMutation(CREATE_MEAL_PLAN, {
+  const [createMealPlan, { loading: duplicating }] = useMutation<{
+    createMealPlan: {
+      id: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      isActive: boolean;
+    };
+  }>(CREATE_MEAL_PLAN, {
     onCompleted: (data) => {
       refetch();
       router.push(`/dashboard/meal-planner/${data.createMealPlan.id}`);
@@ -83,7 +91,15 @@ export default function MealPlannerPage() {
     },
   });
 
-  const [updateMealPlan, { loading: updating }] = useMutation(UPDATE_MEAL_PLAN, {
+  const [updateMealPlan, { loading: updating }] = useMutation<{
+    updateMealPlan: {
+      id: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      isActive: boolean;
+    };
+  }>(UPDATE_MEAL_PLAN, {
     onCompleted: () => {
       refetch();
     },
@@ -92,7 +108,9 @@ export default function MealPlannerPage() {
     },
   });
 
-  const [deleteMealPlan, { loading: deleting }] = useMutation(DELETE_MEAL_PLAN, {
+  const [deleteMealPlan, { loading: deleting }] = useMutation<{
+    deleteMealPlan: boolean;
+  }>(DELETE_MEAL_PLAN, {
     onCompleted: () => {
       refetch();
     },

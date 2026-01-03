@@ -34,7 +34,15 @@ export default function NewMealPlanPage() {
     description: '',
   });
 
-  const [createMealPlan, { loading, error }] = useMutation(CREATE_MEAL_PLAN, {
+  const [createMealPlan, { loading, error }] = useMutation<{
+    createMealPlan: {
+      id: string;
+      name: string;
+      startDate: string;
+      endDate: string;
+      isActive: boolean;
+    };
+  }>(CREATE_MEAL_PLAN, {
     onCompleted: (data) => {
       console.log('Meal plan created:', data.createMealPlan);
       alert('Meal plan created successfully!');
