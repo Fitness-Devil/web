@@ -43,7 +43,7 @@ export default function NewRecipePage() {
   const [ingredients, setIngredients] = useState('');
   const [instructions, setInstructions] = useState('');
 
-  const [createRecipe, { loading }] = useMutation(CREATE_RECIPE, {
+  const [createRecipe, { loading }] = useMutation<{ createRecipe: { id: string } }>(CREATE_RECIPE, {
     onCompleted: (data) => {
       router.push(`/dashboard/recipes/${data.createRecipe.id}`);
     },

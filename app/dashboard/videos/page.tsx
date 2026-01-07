@@ -94,7 +94,12 @@ export default function VideosPage() {
     skip: !userId,
   });
 
-  const [createVideoWithUpload] = useMutation(CREATE_VIDEO_WITH_UPLOAD, {
+  const [createVideoWithUpload] = useMutation<{
+    createVideoWithUpload: {
+      video: { id: string };
+      uploadSession: { uploadUrl: string };
+    };
+  }>(CREATE_VIDEO_WITH_UPLOAD, {
     onError: (error) => {
       setNotice({ type: 'error', message: `Failed to create upload session: ${error.message}` });
     },
@@ -106,7 +111,11 @@ export default function VideosPage() {
     },
   });
 
-  const [createPlaybackSession] = useMutation(CREATE_PLAYBACK_SESSION, {
+  const [createPlaybackSession] = useMutation<{
+    createPlaybackSession: {
+      playbackUrl: string;
+    };
+  }>(CREATE_PLAYBACK_SESSION, {
     onError: (error) => {
       setNotice({ type: 'error', message: `Failed to start playback: ${error.message}` });
     },

@@ -49,7 +49,7 @@ export default function EditRecipePage() {
   const params = useParams();
   const recipeId = params.id as string;
 
-  const { data, loading } = useQuery(GET_RECIPE, {
+  const { data, loading } = useQuery<{ getRecipe: any }>(GET_RECIPE, {
     variables: { id: recipeId },
   });
 
