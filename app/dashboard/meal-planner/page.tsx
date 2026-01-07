@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { InlineNotice } from '@/components/ui/inline-notice';
 
 const GET_MEAL_PLANS = gql`
   query GetMealPlans($userId: String!) {
@@ -65,6 +67,9 @@ interface MealPlan {
 export default function MealPlannerPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
+    null
+  );
 
   const { data, loading, error, refetch } = useQuery<{ getMealPlans: MealPlan[] }>(GET_MEAL_PLANS, {
     variables: {
@@ -87,7 +92,7 @@ export default function MealPlannerPage() {
       router.push(`/dashboard/meal-planner/${data.createMealPlan.id}`);
     },
     onError: (error) => {
-      alert(`Failed to duplicate meal plan: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to duplicate meal plan: ${error.message}` });
     },
   });
 
@@ -104,7 +109,7 @@ export default function MealPlannerPage() {
       refetch();
     },
     onError: (error) => {
-      alert(`Failed to update meal plan: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to update meal plan: ${error.message}` });
     },
   });
 
@@ -115,7 +120,7 @@ export default function MealPlannerPage() {
       refetch();
     },
     onError: (error) => {
-      alert(`Failed to delete meal plan: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to delete meal plan: ${error.message}` });
     },
   });
 
@@ -159,7 +164,7 @@ export default function MealPlannerPage() {
 
   const handleDuplicate = async (plan: MealPlan) => {
     if (!session?.user?.id) {
-      alert('You must be logged in to duplicate a meal plan');
+      setNotice({ type: 'error', message: 'You must be logged in to duplicate a meal plan.' });
       return;
     }
 
@@ -191,11 +196,11 @@ export default function MealPlannerPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="mx-auto w-full max-w-6xl">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading meal plans...</p>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-primary"></div>
+            <p className="text-sm text-muted-foreground">Loading meal plans...</p>
           </div>
         </div>
       </div>
@@ -204,11 +209,11 @@ export default function MealPlannerPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <Card className="border-red-200 bg-red-50">
+      <div className="mx-auto w-full max-w-6xl">
+        <Card className="border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle className="text-red-700">Error Loading Meal Plans</CardTitle>
-            <CardDescription className="text-red-600">
+            <CardTitle className="text-white">Error Loading Meal Plans</CardTitle>
+            <CardDescription className="text-destructive">
               {error.message}
             </CardDescription>
           </CardHeader>
@@ -218,18 +223,20 @@ export default function MealPlannerPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-6xl space-y-10">
+      {notice ? <InlineNotice message={notice.message} type={notice.type} /> : null}
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Meal Planner
-            </h1>
-            <p className="text-gray-600">Create and manage your custom meal plans</p>
+            <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Meal Planner</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Meal Planner</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Create and manage your custom meal plans.
+            </p>
           </div>
           <Link href="/dashboard/meal-planner/new">
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
               Create New Plan
             </Button>
           </Link>
@@ -238,13 +245,13 @@ export default function MealPlannerPage() {
 
       {/* Active Plan */}
       {mealPlans.filter(p => p.isActive).map((plan) => (
-        <Card key={plan.id} className="mb-8 border-2 border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <Card key={plan.id} className="border-white/10 bg-card/80">
           <CardHeader>
             <div className="flex justify-between items-start">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <CardTitle className="text-2xl">{plan.name}</CardTitle>
-                  <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
+                  <CardTitle className="text-2xl text-white">{plan.name}</CardTitle>
+                  <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
                     ACTIVE
                   </span>
                 </div>
@@ -256,13 +263,15 @@ export default function MealPlannerPage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 bg-white rounded-lg">
-                <p className="text-sm text-gray-600 mb-1">Duration</p>
-                <p className="text-2xl font-bold text-blue-600">{calculateDays(plan.startDate, plan.endDate)} days</p>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Duration</p>
+                <p className="mt-2 text-2xl font-semibold text-white">
+                  {calculateDays(plan.startDate, plan.endDate)} days
+                </p>
               </div>
-              <div className="p-4 bg-white rounded-lg flex items-center justify-center">
+              <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-4">
                 <Link href={`/dashboard/meal-planner/${plan.id}`}>
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
                     View & Edit Plan
                   </Button>
                 </Link>
@@ -273,28 +282,30 @@ export default function MealPlannerPage() {
       ))}
 
       {/* Past Plans */}
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold mb-4">Past Meal Plans</h2>
+      <div>
+        <h2 className="text-xl font-semibold text-white">Past Meal Plans</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {mealPlans.filter(p => !p.isActive).map((plan) => (
-          <Card key={plan.id} className="hover:shadow-lg transition-shadow">
+          <Card key={plan.id} className="border-white/10 bg-card/70">
             <CardHeader>
-              <CardTitle className="text-xl">{plan.name}</CardTitle>
+              <CardTitle className="text-lg text-white">{plan.name}</CardTitle>
               <CardDescription>
                 {new Date(plan.startDate).toLocaleDateString()} - {new Date(plan.endDate).toLocaleDateString()}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Duration:</span>
-                  <span className="font-medium">{calculateDays(plan.startDate, plan.endDate)} days</span>
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Duration</span>
+                  <span className="font-medium text-white">
+                    {calculateDays(plan.startDate, plan.endDate)} days
+                  </span>
                 </div>
                 <div className="space-y-2 mt-4">
                   <Button
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                     size="sm"
                     onClick={() => handleActivate(plan.id)}
                     disabled={updating}
@@ -303,12 +314,12 @@ export default function MealPlannerPage() {
                   </Button>
                   <div className="flex gap-2">
                     <Link href={`/dashboard/meal-planner/${plan.id}`} className="flex-1">
-                      <Button variant="outline" className="w-full" size="sm">
+                      <Button variant="outline" className="w-full border-white/10 bg-white/5 text-white" size="sm">
                         View
                       </Button>
                     </Link>
                     <Button
-                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                      className="flex-1 bg-white/10 text-white hover:bg-white/20"
                       size="sm"
                       onClick={() => handleDuplicate(plan)}
                       disabled={duplicating}
@@ -318,7 +329,7 @@ export default function MealPlannerPage() {
                   </div>
                   <Button
                     variant="outline"
-                    className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                    className="w-full border-white/10 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     size="sm"
                     onClick={() => handleDelete(plan.id, plan.name)}
                     disabled={deleting}
@@ -334,16 +345,16 @@ export default function MealPlannerPage() {
 
       {/* Empty State */}
       {mealPlans.length === 0 && (
-        <Card className="border-2 border-dashed">
+        <Card className="border-white/10 bg-card/70">
           <CardHeader>
-            <CardTitle>No Meal Plans Yet</CardTitle>
+            <CardTitle className="text-white">No Meal Plans Yet</CardTitle>
             <CardDescription>
               Create your first meal plan to get started
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/dashboard/meal-planner/new">
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                 Create Your First Plan
               </Button>
             </Link>

@@ -138,10 +138,10 @@ export default function NutritionDashboard() {
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-96">
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Card className="w-full max-w-md border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
+            <CardTitle className="text-white">Authentication Required</CardTitle>
             <CardDescription>Please sign in to view your nutrition plan</CardDescription>
           </CardHeader>
         </Card>
@@ -151,10 +151,10 @@ export default function NutritionDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your nutrition plan...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-primary"></div>
+          <p className="mt-4 text-sm text-muted-foreground">Loading your nutrition plan...</p>
         </div>
       </div>
     );
@@ -162,11 +162,11 @@ export default function NutritionDashboard() {
 
   if (mealPlanError) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <Card className="w-full max-w-2xl">
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-2xl border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle>Error Loading Meal Plan</CardTitle>
-            <CardDescription className="text-red-600">
+            <CardTitle className="text-white">Error Loading Meal Plan</CardTitle>
+            <CardDescription className="text-destructive">
               {mealPlanError.message}
             </CardDescription>
           </CardHeader>
@@ -200,35 +200,38 @@ export default function NutritionDashboard() {
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-6xl space-y-10">
       {/* Header with View Toggle */}
-      <div className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Nutrition</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">
               Nutrition Dashboard
             </h1>
-            <p className="text-gray-600">Your personalized meal plan and calorie tracking</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your personalized meal plan and calorie tracking.
+            </p>
           </div>
 
           {/* View Mode Toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+          <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
             <button
               onClick={() => setViewMode('today')}
-              className={`px-6 py-2.5 rounded-md font-medium transition-all duration-200 ${
+              className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                 viewMode === 'today'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(248,113,113,0.4)]'
+                  : 'text-muted-foreground hover:text-white'
               }`}
             >
               Today
             </button>
             <button
               onClick={() => setViewMode('weekly')}
-              className={`px-6 py-2.5 rounded-md font-medium transition-all duration-200 ${
+              className={`rounded-full px-6 py-2 text-sm font-medium transition ${
                 viewMode === 'weekly'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(248,113,113,0.4)]'
+                  : 'text-muted-foreground hover:text-white'
               }`}
             >
               Weekly
@@ -239,46 +242,44 @@ export default function NutritionDashboard() {
 
       {/* Calorie Summary Cards */}
       {calorieInfo && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-lg">Basal Metabolic Rate</CardTitle>
-              <CardDescription>Calories burned at rest</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-green-600">{Math.round(calorieInfo.basalMetabolicRate)}</p>
-              <p className="text-sm text-gray-600 mt-1">kcal/day</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-lg">Maintenance Calories</CardTitle>
-              <CardDescription>To maintain current weight</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-blue-600">{Math.round(calorieInfo.maintenanceCalories)}</p>
-              <p className="text-sm text-gray-600 mt-1">kcal/day</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-indigo-500 hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <CardTitle className="text-lg">Goal Calories</CardTitle>
-              <CardDescription>Based on your fitness goal</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-indigo-600">{Math.round(calorieInfo.goalCalories)}</p>
-              <p className="text-sm text-gray-600 mt-1">kcal/day</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {[
+            {
+              title: 'Basal Metabolic Rate',
+              description: 'Calories burned at rest',
+              value: Math.round(calorieInfo.basalMetabolicRate),
+            },
+            {
+              title: 'Maintenance Calories',
+              description: 'To maintain current weight',
+              value: Math.round(calorieInfo.maintenanceCalories),
+            },
+            {
+              title: 'Goal Calories',
+              description: 'Based on your fitness goal',
+              value: Math.round(calorieInfo.goalCalories),
+            },
+          ].map((card) => (
+            <Card key={card.title} className="border-white/10 bg-card/70">
+              <CardHeader>
+                <CardTitle className="text-base text-white">{card.title}</CardTitle>
+                <CardDescription>{card.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold text-white">{card.value}</p>
+                <p className="mt-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                  kcal/day
+                </p>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
       {/* Calorie Total Card */}
-      <Card className="mb-8 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-100">
+      <Card className="border-white/10 bg-card/80">
         <CardHeader>
-          <CardTitle className="text-2xl">
+          <CardTitle className="text-2xl text-white">
             {viewMode === 'today' ? "Today's Total" : 'Weekly Average'}
           </CardTitle>
           <CardDescription className="text-base">
@@ -289,26 +290,26 @@ export default function NutritionDashboard() {
         </CardHeader>
         <CardContent>
           <div className="flex items-baseline gap-3">
-            <p className="text-6xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <p className="text-5xl font-semibold text-primary sm:text-6xl">
               {viewMode === 'today' ? totalCalories : weeklyAvgCalories}
             </p>
-            <p className="text-2xl text-gray-600">kcal</p>
+            <p className="text-lg text-muted-foreground">kcal</p>
           </div>
           {calorieInfo && (
             <div className="mt-6">
-              <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+              <div className="h-2 w-full rounded-full bg-white/10">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 shadow-sm"
+                  className="h-2 rounded-full bg-gradient-to-r from-primary to-orange-400 transition-all duration-500"
                   style={{
                     width: `${Math.min(((viewMode === 'today' ? totalCalories : weeklyAvgCalories) / calorieInfo.goalCalories) * 100, 100)}%`,
                   }}
                 ></div>
               </div>
-              <div className="flex justify-between items-center mt-3">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-white">
                   {Math.round(((viewMode === 'today' ? totalCalories : weeklyAvgCalories) / calorieInfo.goalCalories) * 100)}% of daily goal
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {(viewMode === 'today' ? totalCalories : weeklyAvgCalories) < calorieInfo.goalCalories
                     ? `${calorieInfo.goalCalories - (viewMode === 'today' ? totalCalories : weeklyAvgCalories)} kcal remaining`
                     : `${(viewMode === 'today' ? totalCalories : weeklyAvgCalories) - calorieInfo.goalCalories} kcal over`}
@@ -324,7 +325,7 @@ export default function NutritionDashboard() {
         {viewMode === 'today' ? (
           /* Today's View */
           <>
-            <h2 className="text-3xl font-bold">
+            <h2 className="text-2xl font-semibold text-white">
               Today&apos;s Meals
             </h2>
 
@@ -348,39 +349,50 @@ export default function NutritionDashboard() {
               </Card>
             ) : (
               Object.entries(mealsByType).map(([type, typeMeals]) => (
-                <div key={type} className="space-y-4">
-                  <h3 className="text-xl font-semibold text-gray-700 capitalize flex items-center gap-2">
-                    <span className="w-2 h-8 bg-gradient-to-b from-blue-500 to-indigo-600 rounded-full"></span>
+                <div key={type} className="space-y-3">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    <span className="h-6 w-1 rounded-full bg-gradient-to-b from-primary to-orange-400"></span>
                     {type}
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {typeMeals.map((meal) => (
-                      <Card key={meal.id} className="hover:shadow-xl hover:scale-105 transition-all duration-200 border-l-4 border-l-blue-500">
-                        <CardHeader>
-                          <CardTitle className="text-lg leading-tight">
+                      <Card
+                        key={meal.id}
+                        className="border-white/10 bg-card/70 transition hover:border-primary/40 hover:bg-card/90"
+                      >
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-base font-semibold text-white">
                             {meal.recipe.name}
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="space-y-2">
-                            <div className="flex items-baseline gap-2">
-                              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        <CardContent className="pt-0">
+                          <div className="flex items-end justify-between">
+                            <div>
+                              <p className="text-2xl font-semibold text-primary">
                                 {meal.recipe.nutrition.calories}
                               </p>
-                              <p className="text-sm text-gray-600 font-medium">kcal</p>
+                              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                                kcal
+                              </p>
                             </div>
-                            <div className="grid grid-cols-3 gap-1 text-xs">
-                              <div className="text-center">
-                                <p className="font-bold text-green-600">{meal.recipe.nutrition.protein}g</p>
-                                <p className="text-gray-500">Protein</p>
+                            <div className="flex gap-3 text-right text-xs text-muted-foreground">
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  {meal.recipe.nutrition.protein}g
+                                </p>
+                                <p>Protein</p>
                               </div>
-                              <div className="text-center">
-                                <p className="font-bold text-blue-600">{meal.recipe.nutrition.carbs}g</p>
-                                <p className="text-gray-500">Carbs</p>
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  {meal.recipe.nutrition.carbs}g
+                                </p>
+                                <p>Carbs</p>
                               </div>
-                              <div className="text-center">
-                                <p className="font-bold text-orange-600">{meal.recipe.nutrition.fats}g</p>
-                                <p className="text-gray-500">Fats</p>
+                              <div>
+                                <p className="text-sm font-semibold text-white">
+                                  {meal.recipe.nutrition.fats}g
+                                </p>
+                                <p>Fats</p>
                               </div>
                             </div>
                           </div>
@@ -395,7 +407,7 @@ export default function NutritionDashboard() {
         ) : (
           /* Weekly View */
           <>
-            <h2 className="text-3xl font-bold">
+            <h2 className="text-2xl font-semibold text-white">
               Weekly Meal Plan
             </h2>
 
@@ -422,53 +434,49 @@ export default function NutritionDashboard() {
                   const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long' });
 
                   return (
-                    <Card key={day.id} className="overflow-hidden border-2 hover:border-blue-300 transition-colors">
-                      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2">
-                        <div className="flex justify-between items-center">
+                    <Card key={day.id} className="overflow-hidden border-white/10 bg-card/80">
+                      <CardHeader className="border-b border-white/10">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
                           <div>
-                            <CardTitle className="text-2xl">{dayName}</CardTitle>
+                            <CardTitle className="text-xl text-white">{dayName}</CardTitle>
                             <CardDescription>{dayDate.toLocaleDateString()}</CardDescription>
                           </div>
                           <div className="text-right">
-                            <p className="text-3xl font-bold text-blue-600">{day.totalCalories}</p>
-                            <p className="text-sm text-gray-600">kcal total</p>
+                            <p className="text-2xl font-semibold text-primary">{day.totalCalories}</p>
+                            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                              kcal total
+                            </p>
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-5">
                         {day.meals.length === 0 ? (
-                          <p className="text-gray-500 text-center py-4">No meals planned for this day</p>
+                          <p className="text-sm text-muted-foreground">No meals planned for this day</p>
                         ) : (
-                          <div className="space-y-6">
+                          <div className="space-y-5">
                             {Object.entries(mealsByTypeForDay).map(([type, typeMeals]) => (
                               <div key={type}>
-                                <h4 className="text-md font-semibold text-gray-600 uppercase tracking-wide mb-3 flex items-center gap-2">
-                                  <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
+                                <h4 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                                  <span className="h-5 w-1 rounded-full bg-primary"></span>
                                   {type}
                                 </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                                   {typeMeals.map((meal) => (
                                     <div
                                       key={meal.id}
-                                      className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md hover:border-blue-300 transition-all"
+                                      className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:border-primary/40"
                                     >
-                                      <p className="font-medium text-gray-900 mb-2 leading-tight">{meal.recipe.name}</p>
-                                      <p className="text-2xl font-bold text-blue-600">
-                                        {meal.recipe.nutrition.calories} <span className="text-sm text-gray-600">kcal</span>
-                                      </p>
-                                      <div className="grid grid-cols-3 gap-1 text-xs mt-2">
-                                        <div>
-                                          <p className="font-bold text-green-600">{meal.recipe.nutrition.protein}g</p>
-                                          <p className="text-gray-500">P</p>
-                                        </div>
-                                        <div>
-                                          <p className="font-bold text-blue-600">{meal.recipe.nutrition.carbs}g</p>
-                                          <p className="text-gray-500">C</p>
-                                        </div>
-                                        <div>
-                                          <p className="font-bold text-orange-600">{meal.recipe.nutrition.fats}g</p>
-                                          <p className="text-gray-500">F</p>
-                                        </div>
+                                      <p className="text-sm font-semibold text-white">{meal.recipe.name}</p>
+                                      <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                                        <span className="text-lg font-semibold text-primary">
+                                          {meal.recipe.nutrition.calories}
+                                        </span>
+                                        <span>kcal</span>
+                                      </div>
+                                      <div className="mt-3 flex justify-between text-xs text-muted-foreground">
+                                        <span>P {meal.recipe.nutrition.protein}g</span>
+                                        <span>C {meal.recipe.nutrition.carbs}g</span>
+                                        <span>F {meal.recipe.nutrition.fats}g</span>
                                       </div>
                                     </div>
                                   ))}

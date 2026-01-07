@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { useSession } from 'next-auth/react';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { InlineNotice } from '@/components/ui/inline-notice';
 import {
   Dialog,
   DialogContent,
@@ -88,6 +90,9 @@ export default function RecipesPage() {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedMealSlot, setSelectedMealSlot] = useState<'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK'>('BREAKFAST');
+  const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
+    null
+  );
 
   const { data, loading, error } = useQuery<{ getRecipes: Recipe[] }>(GET_RECIPES, {
     variables: {
@@ -105,14 +110,14 @@ export default function RecipesPage() {
 
   const [addMealToPlan, { loading: addingMeal }] = useMutation(ADD_MEAL_TO_PLAN, {
     onCompleted: () => {
-      alert('Recipe added to meal plan!');
+      setNotice({ type: 'success', message: 'Recipe added to meal plan.' });
       setAddToPlanDialogOpen(false);
       setSelectedRecipe(null);
       setSelectedPlanId('');
       setSelectedDate('');
     },
     onError: (error) => {
-      alert(`Failed to add recipe: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to add recipe: ${error.message}` });
     },
   });
 
@@ -121,7 +126,7 @@ export default function RecipesPage() {
 
   const handleAddToPlan = async () => {
     if (!selectedRecipe || !selectedPlanId || !selectedDate) {
-      alert('Please select a meal plan and date');
+      setNotice({ type: 'info', message: 'Please select a meal plan and date.' });
       return;
     }
 
@@ -140,11 +145,11 @@ export default function RecipesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <div className="flex items-center justify-center min-h-[400px]">
+      <div className="mx-auto w-full max-w-6xl">
+        <div className="flex min-h-[400px] items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading recipes...</p>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-primary"></div>
+            <p className="text-sm text-muted-foreground">Loading recipes...</p>
           </div>
         </div>
       </div>
@@ -153,11 +158,11 @@ export default function RecipesPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <Card className="border-red-200 bg-red-50">
+      <div className="mx-auto w-full max-w-6xl">
+        <Card className="border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle className="text-red-700">Error Loading Recipes</CardTitle>
-            <CardDescription className="text-red-600">
+            <CardTitle className="text-white">Error Loading Recipes</CardTitle>
+            <CardDescription className="text-destructive">
               {error.message}
             </CardDescription>
           </CardHeader>
@@ -167,17 +172,26 @@ export default function RecipesPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="mx-auto flex h-[calc(100vh-8rem)] w-full max-w-6xl flex-col gap-6 overflow-hidden">
+      {notice ? <InlineNotice message={notice.message} type={notice.type} /> : null}
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Recipe Library
-        </h1>
-        <p className="text-gray-600">Browse and explore nutritious recipes for your meal plans</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.4em] text-muted-foreground">Recipes</p>
+          <h1 className="mt-2 text-3xl font-semibold text-white sm:text-4xl">Recipe Library</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Browse and explore nutritious recipes for your meal plans.
+          </p>
+        </div>
+        <Link href="/dashboard/recipes/new">
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+            Add Recipe
+          </Button>
+        </Link>
       </div>
 
       {/* Filters */}
-      <div className="mb-8 space-y-4">
+      <div className="space-y-4">
         {/* Search */}
         <div className="max-w-md">
           <Input
@@ -190,13 +204,13 @@ export default function RecipesPage() {
         </div>
 
         {/* Meal Type Filter */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap gap-2">
           {(['ALL', 'BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as MealType[]).map((type) => (
             <Button
               key={type}
               variant={selectedMealType === type ? 'default' : 'outline'}
               onClick={() => setSelectedMealType(type)}
-              className={selectedMealType === type ? 'bg-blue-600' : ''}
+              className={selectedMealType === type ? 'bg-primary text-primary-foreground' : 'border-white/10 bg-white/5 text-white'}
             >
               {type.charAt(0) + type.slice(1).toLowerCase()}
             </Button>
@@ -204,52 +218,58 @@ export default function RecipesPage() {
         </div>
       </div>
 
-      {/* Recipe Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {recipes.map((recipe) => (
-          <Card key={recipe.id} className="hover:shadow-xl transition-all duration-200 border-l-4 border-l-blue-500">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <CardTitle className="text-lg leading-tight mb-2">{recipe.name}</CardTitle>
-                  <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
+      {/* Recipe Table */}
+      <Card className="flex flex-1 flex-col overflow-hidden border-white/10 bg-card/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Recipes</CardTitle>
+          <CardDescription className="text-sm">
+            {recipes.length} recipes found
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 flex-col pt-0">
+          <div className="hidden grid-cols-[2fr_0.9fr_0.7fr_0.9fr] items-center gap-4 border-b border-white/10 pb-3 text-xs uppercase tracking-[0.2em] text-muted-foreground md:grid">
+            <span>Name</span>
+            <span>Meal Type</span>
+            <span>Calories</span>
+            <span className="text-right">Actions</span>
+          </div>
+          <div className="flex-1 overflow-y-auto pr-2 divide-y divide-white/10 scrollbar-dark">
+            {recipes.map((recipe) => (
+              <div
+                key={recipe.id}
+                className="grid gap-3 py-4 md:grid-cols-[2fr_0.9fr_0.7fr_0.9fr] md:items-center"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-white">{recipe.name}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {recipe.description}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground md:hidden">
+                    <span className="rounded-full border border-white/10 px-2 py-1">
+                      {recipe.mealType}
+                    </span>
+                    <span>{recipe.nutrition.calories} kcal</span>
+                    <span>P {recipe.nutrition.protein}g</span>
+                    <span>C {recipe.nutrition.carbs}g</span>
+                    <span>F {recipe.nutrition.fats}g</span>
+                  </div>
+                </div>
+                <div className="hidden md:flex">
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                     {recipe.mealType}
                   </span>
                 </div>
-              </div>
-              <CardDescription className="mt-2">{recipe.description}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {/* Calories */}
-                <div className="flex items-baseline gap-2">
-                  <p className="text-3xl font-bold text-blue-600">{recipe.nutrition.calories}</p>
-                  <p className="text-sm text-gray-600">kcal</p>
+                <div className="hidden md:block text-sm font-semibold text-white">
+                  {recipe.nutrition.calories} kcal
                 </div>
-
-                {/* Macros */}
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="text-center p-2 bg-green-50 rounded">
-                    <p className="font-bold text-green-700">{recipe.nutrition.protein}g</p>
-                    <p className="text-gray-600 text-xs">Protein</p>
-                  </div>
-                  <div className="text-center p-2 bg-blue-50 rounded">
-                    <p className="font-bold text-blue-700">{recipe.nutrition.carbs}g</p>
-                    <p className="text-gray-600 text-xs">Carbs</p>
-                  </div>
-                  <div className="text-center p-2 bg-orange-50 rounded">
-                    <p className="font-bold text-orange-700">{recipe.nutrition.fats}g</p>
-                    <p className="text-gray-600 text-xs">Fats</p>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 mt-4">
-                  <Button variant="outline" className="flex-1" size="sm">
-                    View Details
-                  </Button>
+                <div className="flex gap-2 md:justify-end">
+                  <Link href={`/dashboard/recipes/${recipe.id}`}>
+                    <Button variant="outline" className="border-white/10 bg-white/5 text-white" size="sm">
+                      View
+                    </Button>
+                  </Link>
                   <Button
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
                     size="sm"
                     onClick={() => {
                       setSelectedRecipe(recipe);
@@ -257,20 +277,20 @@ export default function RecipesPage() {
                       setAddToPlanDialogOpen(true);
                     }}
                   >
-                    Add to Plan
+                    Add
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Empty State */}
       {recipes.length === 0 && (
-        <Card className="border-2 border-dashed">
+        <Card className="border-white/10 bg-card/70">
           <CardHeader>
-            <CardTitle>No Recipes Found</CardTitle>
+            <CardTitle className="text-white">No Recipes Found</CardTitle>
             <CardDescription>
               Try adjusting your filters or search term
             </CardDescription>
@@ -280,9 +300,11 @@ export default function RecipesPage() {
 
       {/* Add to Plan Dialog */}
       <Dialog open={addToPlanDialogOpen} onOpenChange={setAddToPlanDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md border-white/10 bg-card/95">
           <DialogHeader>
-            <DialogTitle>Add {selectedRecipe?.name} to Meal Plan</DialogTitle>
+            <DialogTitle className="text-white">
+              Add {selectedRecipe?.name} to Meal Plan
+            </DialogTitle>
             <DialogDescription>
               Select the meal plan, date, and meal type
             </DialogDescription>
@@ -291,7 +313,7 @@ export default function RecipesPage() {
             <div className="space-y-2">
               <Label htmlFor="mealPlan">Select Meal Plan</Label>
               {mealPlans.length === 0 ? (
-                <p className="text-sm text-gray-500">No meal plans available. Create one first!</p>
+                <p className="text-sm text-muted-foreground">No meal plans available. Create one first!</p>
               ) : (
                 <Select value={selectedPlanId} onValueChange={setSelectedPlanId}>
                   <SelectTrigger>
@@ -344,7 +366,7 @@ export default function RecipesPage() {
               <Button
                 onClick={handleAddToPlan}
                 disabled={!selectedPlanId || !selectedDate || addingMeal}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 {addingMeal ? 'Adding...' : 'Add to Plan'}
               </Button>

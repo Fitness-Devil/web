@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { InlineNotice } from '@/components/ui/inline-notice';
 
 const CREATE_MEAL_PLAN = gql`
   mutation CreateMealPlan($input: CreateMealPlanInput!) {
@@ -26,6 +27,9 @@ const CREATE_MEAL_PLAN = gql`
 export default function NewMealPlanPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
@@ -45,7 +49,7 @@ export default function NewMealPlanPage() {
   }>(CREATE_MEAL_PLAN, {
     onCompleted: (data) => {
       console.log('Meal plan created:', data.createMealPlan);
-      alert('Meal plan created successfully!');
+      setNotice({ type: 'success', message: 'Meal plan created successfully.' });
       // Redirect to the meal planner list
       router.push('/dashboard/meal-planner');
     },
@@ -54,7 +58,7 @@ export default function NewMealPlanPage() {
       const errorMsg = error.message.includes('foreign key')
         ? 'You need to set up your nutrition profile first. Go to Settings → Nutrition Profile.'
         : error.message;
-      alert(`Failed to create meal plan: ${errorMsg}`);
+      setNotice({ type: 'error', message: `Failed to create meal plan: ${errorMsg}` });
     },
     refetchQueries: ['GetMealPlans'], // Refresh the meal plans list
   });
@@ -63,7 +67,7 @@ export default function NewMealPlanPage() {
     e.preventDefault();
 
     if (!session?.user?.id) {
-      alert('You must be logged in to create a meal plan');
+      setNotice({ type: 'error', message: 'You must be logged in to create a meal plan.' });
       return;
     }
 
@@ -103,6 +107,7 @@ export default function NewMealPlanPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
+      {notice ? <InlineNotice message={notice.message} type={notice.type} className="mb-6" /> : null}
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-4 mb-4">

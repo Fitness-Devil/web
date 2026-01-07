@@ -7,6 +7,7 @@ import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { InlineNotice } from '@/components/ui/inline-notice';
 import {
   Dialog,
   DialogContent,
@@ -164,6 +165,9 @@ export default function MealPlanEditorPage() {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>('');
   const [mealNotes, setMealNotes] = useState('');
   const [recipeFilter, setRecipeFilter] = useState<MealType | 'ALL'>('ALL');
+  const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
+    null
+  );
 
   const { data, loading, error, refetch } = useQuery<{ getMealPlan: MealPlan }>(GET_MEAL_PLAN, {
     variables: { id: planId },
@@ -185,7 +189,7 @@ export default function MealPlanEditorPage() {
       setMealNotes('');
     },
     onError: (error) => {
-      alert(`Failed to add meal: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to add meal: ${error.message}` });
     },
   });
 
@@ -194,17 +198,17 @@ export default function MealPlanEditorPage() {
       refetch();
     },
     onError: (error) => {
-      alert(`Failed to remove meal: ${error.message}`);
+      setNotice({ type: 'error', message: `Failed to remove meal: ${error.message}` });
     },
   });
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <div className="flex items-center justify-center min-h-[400px]">
+      <div className="mx-auto w-full max-w-6xl">
+        <div className="flex min-h-[400px] items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading meal plan...</p>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-white/10 border-t-primary"></div>
+            <p className="text-sm text-muted-foreground">Loading meal plan...</p>
           </div>
         </div>
       </div>
@@ -213,17 +217,19 @@ export default function MealPlanEditorPage() {
 
   if (error || !data?.getMealPlan) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <Card className="border-red-200 bg-red-50">
+      <div className="mx-auto w-full max-w-6xl">
+        <Card className="border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle className="text-red-700">Error Loading Meal Plan</CardTitle>
-            <CardDescription className="text-red-600">
+            <CardTitle className="text-white">Error Loading Meal Plan</CardTitle>
+            <CardDescription className="text-destructive">
               {error?.message || 'Meal plan not found'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/dashboard/meal-planner">
-              <Button variant="outline">Back to Meal Plans</Button>
+              <Button variant="outline" className="border-white/10 bg-white/5 text-white">
+                Back to Meal Plans
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -236,17 +242,19 @@ export default function MealPlanEditorPage() {
 
   if (!mealPlan.days || mealPlan.days.length === 0) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
-        <Card className="border-yellow-200 bg-yellow-50">
+      <div className="mx-auto w-full max-w-6xl">
+        <Card className="border-white/10 bg-card/80">
           <CardHeader>
-            <CardTitle className="text-yellow-700">No Days in Meal Plan</CardTitle>
-            <CardDescription className="text-yellow-600">
+            <CardTitle className="text-white">No Days in Meal Plan</CardTitle>
+            <CardDescription className="text-muted-foreground">
               This meal plan has no days configured.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/dashboard/meal-planner">
-              <Button variant="outline">Back to Meal Plans</Button>
+              <Button variant="outline" className="border-white/10 bg-white/5 text-white">
+                Back to Meal Plans
+              </Button>
             </Link>
           </CardContent>
         </Card>
@@ -268,7 +276,7 @@ export default function MealPlanEditorPage() {
 
   const handleAddMeal = async () => {
     if (!selectedRecipeId || !currentDay) {
-      alert('Please select a recipe');
+      setNotice({ type: 'info', message: 'Please select a recipe.' });
       return;
     }
 
@@ -302,81 +310,67 @@ export default function MealPlanEditorPage() {
     }
   };
 
-  const getMealTypeColor = (type: MealType) => {
-    switch (type) {
-      case 'BREAKFAST': return 'border-yellow-500 bg-yellow-50';
-      case 'LUNCH': return 'border-green-500 bg-green-50';
-      case 'DINNER': return 'border-blue-500 bg-blue-50';
-      case 'SNACK': return 'border-purple-500 bg-purple-50';
-      default: return 'border-gray-500 bg-gray-50';
-    }
-  };
-
-  const getMealTypeTextColor = (type: MealType) => {
-    switch (type) {
-      case 'BREAKFAST': return 'text-yellow-700';
-      case 'LUNCH': return 'text-green-700';
-      case 'DINNER': return 'text-blue-700';
-      case 'SNACK': return 'text-purple-700';
-      default: return 'text-gray-700';
-    }
-  };
+  const getMealTypeLabel = (type: MealType) => type.charAt(0) + type.slice(1).toLowerCase();
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
+    <div className="mx-auto w-full max-w-6xl space-y-8">
+      {notice ? <InlineNotice message={notice.message} type={notice.type} /> : null}
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
           <Link href="/dashboard/meal-planner">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="border-white/10 bg-white/5 text-white">
               ← Back to Plans
             </Button>
           </Link>
-        </div>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                {mealPlan.name}
-              </h1>
-              {mealPlan.isActive && (
-                <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
-                  ACTIVE
-                </span>
-              )}
-            </div>
-            <p className="text-gray-600">
-              {new Date(mealPlan.startDate).toLocaleDateString()} - {new Date(mealPlan.endDate).toLocaleDateString()}
-            </p>
+          <p className="mt-5 text-xs uppercase tracking-[0.4em] text-muted-foreground">Meal Plan</p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold text-white sm:text-4xl">{mealPlan.name}</h1>
+            {mealPlan.isActive && (
+              <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+                Active
+              </span>
+            )}
           </div>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {new Date(mealPlan.startDate).toLocaleDateString()} - {new Date(mealPlan.endDate).toLocaleDateString()}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleClearDay} className="border-white/10 bg-white/5 text-white">
+            Clear Day
+          </Button>
+          <Link href="/dashboard/recipes">
+            <Button variant="outline" className="border-white/10 bg-white/5 text-white">
+              Browse Recipes
+            </Button>
+          </Link>
         </div>
       </div>
 
       {/* Day Navigation */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Select Day</CardTitle>
+      <Card className="border-white/10 bg-card/80">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-white">Select Day</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="flex gap-2 overflow-x-auto pb-2">
             {mealPlan.days.map((day, index) => (
               <button
                 key={day.id}
                 onClick={() => setSelectedDay(index)}
-                className={`flex-shrink-0 p-4 rounded-lg border-2 transition-all ${
+                className={`flex-shrink-0 rounded-2xl border px-4 py-3 text-left transition ${
                   selectedDay === index
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                    ? 'border-primary/40 bg-primary/10 text-white'
+                    : 'border-white/10 bg-white/5 text-muted-foreground hover:border-primary/30'
                 }`}
               >
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-600">Day {index + 1}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
-                  <p className="text-lg font-bold text-blue-600 mt-2">{day.totalCalories}</p>
-                  <p className="text-xs text-gray-500">kcal</p>
-                </div>
+                <p className="text-xs uppercase tracking-[0.2em]">Day {index + 1}</p>
+                <p className="mt-1 text-sm">
+                  {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+                <p className="mt-2 text-lg font-semibold text-white">{day.totalCalories}</p>
+                <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">kcal</p>
               </button>
             ))}
           </div>
@@ -384,37 +378,35 @@ export default function MealPlanEditorPage() {
       </Card>
 
       {/* Day Overview */}
-      <Card className="mb-6 border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
+      <Card className="border-white/10 bg-card/80">
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <CardTitle className="text-2xl">
+              <CardTitle className="text-xl text-white">
                 Day {selectedDay + 1} - {new Date(currentDay.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </CardTitle>
-              <CardDescription className="text-base mt-1">
-                Plan your meals for this day
-              </CardDescription>
+              <CardDescription className="text-sm">Plan your meals for this day</CardDescription>
             </div>
             <div className="text-right">
-              <p className="text-4xl font-bold text-blue-600">{currentDay.totalCalories}</p>
-              <p className="text-sm text-gray-600">kcal total</p>
+              <p className="text-3xl font-semibold text-primary">{currentDay.totalCalories}</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">kcal total</p>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {mealPlan.avgDailyCalories > 0 && (
             <>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="h-2 w-full rounded-full bg-white/10">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
+                  className="h-2 rounded-full bg-gradient-to-r from-primary to-orange-400 transition-all duration-500"
                   style={{ width: `${Math.min((currentDay.totalCalories / mealPlan.avgDailyCalories) * 100, 100)}%` }}
                 ></div>
               </div>
-              <div className="flex justify-between items-center mt-2">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-white">
                   {Math.round((currentDay.totalCalories / mealPlan.avgDailyCalories) * 100)}% of avg daily calories ({mealPlan.avgDailyCalories} kcal)
                 </p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {currentDay.totalCalories < mealPlan.avgDailyCalories
                     ? `${mealPlan.avgDailyCalories - currentDay.totalCalories} kcal remaining`
                     : `${currentDay.totalCalories - mealPlan.avgDailyCalories} kcal over`}
@@ -426,20 +418,20 @@ export default function MealPlanEditorPage() {
       </Card>
 
       {/* Meal Slots */}
-      <div className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-2">
         {MEAL_TYPES.map((mealType) => {
           const meals = getMealsByType(mealType);
           const mealTypeCalories = getMealTypeCalories(mealType);
 
           return (
-            <Card key={mealType} className={`border-l-4 ${getMealTypeColor(mealType)}`}>
+            <Card key={mealType} className="border-white/10 bg-card/80">
               <CardHeader>
-                <div className="flex justify-between items-start">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <CardTitle className={`text-xl ${getMealTypeTextColor(mealType)}`}>
-                      {mealType}
+                    <CardTitle className="text-base text-white">
+                      {getMealTypeLabel(mealType)}
                     </CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-sm">
                       {meals.length} {meals.length === 1 ? 'recipe' : 'recipes'} • {mealTypeCalories} kcal
                     </CardDescription>
                   </div>
@@ -451,13 +443,13 @@ export default function MealPlanEditorPage() {
                     }
                   }}>
                     <DialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="gap-2">
+                      <Button size="sm" variant="outline" className="gap-2 border-white/10 bg-white/5 text-white">
                         + Add Recipe
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto border-white/10 bg-card/95">
                       <DialogHeader>
-                        <DialogTitle>Add Recipe to {mealType}</DialogTitle>
+                        <DialogTitle className="text-white">Add Recipe to {getMealTypeLabel(mealType)}</DialogTitle>
                         <DialogDescription>
                           Select a recipe to add to this meal slot
                         </DialogDescription>
@@ -485,9 +477,9 @@ export default function MealPlanEditorPage() {
                         <div className="space-y-2">
                           <Label htmlFor="recipe">Select Recipe</Label>
                           {recipesLoading ? (
-                            <p className="text-sm text-gray-500">Loading recipes...</p>
+                            <p className="text-sm text-muted-foreground">Loading recipes...</p>
                           ) : recipes.length === 0 ? (
-                            <p className="text-sm text-gray-500">No recipes found for this meal type</p>
+                            <p className="text-sm text-muted-foreground">No recipes found for this meal type</p>
                           ) : (
                             <Select value={selectedRecipeId} onValueChange={setSelectedRecipeId}>
                               <SelectTrigger>
@@ -529,7 +521,7 @@ export default function MealPlanEditorPage() {
                           <Button
                             onClick={handleAddMeal}
                             disabled={!selectedRecipeId || addingMeal}
-                            className="bg-blue-600 hover:bg-blue-700"
+                            className="bg-primary text-primary-foreground hover:bg-primary/90"
                           >
                             {addingMeal ? 'Adding...' : 'Add to Plan'}
                           </Button>
@@ -541,33 +533,35 @@ export default function MealPlanEditorPage() {
               </CardHeader>
               <CardContent>
                 {meals.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No recipes added yet</p>
+                  <div className="py-6 text-sm text-muted-foreground">
+                    No recipes added yet.
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="divide-y divide-white/10">
                     {meals.map((meal) => (
                       <div
                         key={meal.id}
-                        className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                        className="grid gap-3 py-3 md:grid-cols-[1.6fr_0.6fr_0.8fr_0.4fr] md:items-center"
                       >
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-1">{meal.recipe.name}</h4>
-                          <div className="flex gap-4 text-sm text-gray-600">
-                            <span>{meal.recipe.nutrition.calories} kcal</span>
-                            <span>P: {meal.recipe.nutrition.protein}g</span>
-                            <span>C: {meal.recipe.nutrition.carbs}g</span>
-                            <span>F: {meal.recipe.nutrition.fats}g</span>
-                          </div>
+                        <div>
+                          <h4 className="text-sm font-semibold text-white">{meal.recipe.name}</h4>
                           {meal.notes && (
-                            <p className="text-sm text-gray-500 mt-2 italic">{meal.notes}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{meal.notes}</p>
                           )}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="text-sm font-semibold text-white md:text-center">
+                          {meal.recipe.nutrition.calories} kcal
+                        </div>
+                        <div className="flex gap-2 text-xs text-muted-foreground md:justify-center">
+                          <span>P {meal.recipe.nutrition.protein}g</span>
+                          <span>C {meal.recipe.nutrition.carbs}g</span>
+                          <span>F {meal.recipe.nutrition.fats}g</span>
+                        </div>
+                        <div className="flex md:justify-end">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 hover:text-red-700"
+                            className="border-white/10 text-destructive hover:bg-destructive/10 hover:text-destructive"
                             onClick={() => handleRemoveMeal(meal.id)}
                           >
                             Remove
@@ -582,24 +576,6 @@ export default function MealPlanEditorPage() {
           );
         })}
       </div>
-
-      {/* Quick Actions */}
-      <Card className="mt-8 border-2 border-dashed">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Manage this meal plan</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="outline" onClick={handleClearDay}>
-              Clear This Day
-            </Button>
-            <Link href="/dashboard/recipes">
-              <Button variant="outline">Browse All Recipes</Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

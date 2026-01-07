@@ -32,9 +32,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect to dashboard if accessing auth routes with valid token
+  // Redirect to nutrition dashboard if accessing auth routes with valid token
   if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/dashboard/nutrition', request.url));
+  }
+
+  // Redirect logged-in users away from the landing page
+  if (pathname === '/' && token) {
+    return NextResponse.redirect(new URL('/dashboard/nutrition', request.url));
   }
 
   return NextResponse.next();
