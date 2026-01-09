@@ -61,6 +61,23 @@ const CREATE_PLAYBACK_SESSION = gql`
   }
 `;
 
+const GET_VIDEO_METADATA = gql`
+  query GetVideoMetadata($videoId: String!) {
+    getVideoMetadata(videoId: $videoId) {
+      videoId
+      durationMs
+      width
+      height
+      codec
+      bitrate
+      frameRate
+      status
+      errorMessage
+      analyzedAt
+    }
+  }
+`;
+
 type VideoItem = {
   id: string;
   filename: string;
@@ -69,6 +86,19 @@ type VideoItem = {
   storageKey: string;
   created_at: string;
   updatedAt: string;
+};
+
+type VideoMetadata = {
+  videoId: string;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  codec: string | null;
+  bitrate: number | null;
+  frameRate: number | null;
+  status: string;
+  errorMessage: string | null;
+  analyzedAt: string | null;
 };
 
 const contentTypeMap: Record<string, 'MP4' | 'QUICKTIME' | 'WEBM' | null> = {
@@ -92,6 +122,13 @@ export default function VideosPage() {
   const { data, loading, refetch } = useQuery<{ getUserVideos: VideoItem[] }>(GET_USER_VIDEOS, {
     variables: { userId },
     skip: !userId,
+  });
+
+  const { data: analysisData, loading: analysisLoading } = useQuery<{
+    getVideoMetadata: VideoMetadata | null;
+  }>(GET_VIDEO_METADATA, {
+    variables: { videoId: selectedVideo?.id ?? '' },
+    skip: !selectedVideo?.id,
   });
 
   const [createVideoWithUpload] = useMutation<{
@@ -122,6 +159,24 @@ export default function VideosPage() {
   });
 
   const videos = useMemo(() => data?.getUserVideos || [], [data]);
+  const analysis = analysisData?.getVideoMetadata ?? null;
+
+  const formatDuration = (durationMs: number | null) => {
+    if (!durationMs) return '—';
+    const totalSeconds = Math.round(durationMs / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}m ${seconds}s`;
+  };
+
+  const formatRate = (frameRate: number | null) =>
+    frameRate ? `${frameRate.toFixed(2)} fps` : '—';
+
+  const formatBitrate = (bitrate: number | null) => {
+    if (!bitrate) return '—';
+    const mbps = bitrate / 1_000_000;
+    return `${mbps.toFixed(2)} Mbps`;
+  };
 
   const handleUpload = async () => {
     if (!selectedFile || !userId) {
@@ -253,7 +308,7 @@ export default function VideosPage() {
               Select a video to generate a secure playback link.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {selectedVideo ? (
               <div className="space-y-3">
                 <div className="text-sm text-muted-foreground">
@@ -279,6 +334,62 @@ export default function VideosPage() {
                 Select a video from the list to preview it here.
               </div>
             )}
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4">
+              <div className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Analysis</div>
+              {!selectedVideo ? (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Pick a video to view analysis metadata.
+                </div>
+              ) : analysisLoading ? (
+                <div className="mt-3 text-sm text-muted-foreground">Loading analysis...</div>
+              ) : analysis ? (
+                <div className="mt-4 grid gap-3 text-sm text-white">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status</span>
+                    <span>{analysis.status}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Duration</span>
+                    <span>{formatDuration(analysis.durationMs)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Resolution</span>
+                    <span>
+                      {analysis.width && analysis.height
+                        ? `${analysis.width}×${analysis.height}`
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Codec</span>
+                    <span>{analysis.codec ?? '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Frame rate</span>
+                    <span>{formatRate(analysis.frameRate)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Bitrate</span>
+                    <span>{formatBitrate(analysis.bitrate)}</span>
+                  </div>
+                  {analysis.analyzedAt ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Analyzed</span>
+                      <span>{new Date(analysis.analyzedAt).toLocaleString()}</span>
+                    </div>
+                  ) : null}
+                  {analysis.errorMessage ? (
+                    <div className="rounded-xl border border-amber-200/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                      {analysis.errorMessage}
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-3 text-sm text-muted-foreground">
+                  Analysis is not available yet. Check back soon.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
