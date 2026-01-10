@@ -86,6 +86,15 @@ type WorkoutTemplate = {
   exercises: TemplateExercise[] | null;
 };
 
+type ReportDetail = {
+  id: string;
+  sessionId: string;
+  userId: string;
+  generatedAt: string;
+  summaryJson: string;
+  pbsJson: string;
+};
+
 const difficultyOptions = ['EASY', 'MODERATE', 'HARD', 'VERY_HARD'] as const;
 
 export default function WorkoutSessionPage() {
@@ -100,6 +109,9 @@ export default function WorkoutSessionPage() {
   const [ending, setEnding] = useState(false);
   const [savingLogs, setSavingLogs] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [report, setReport] = useState<ReportDetail | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
   const [endDifficulty, setEndDifficulty] = useState<string>('MODERATE');
   const [endNotes, setEndNotes] = useState('');
   const [pendingSets, setPendingSets] = useState<Record<string, PendingSet[]>>({});
@@ -288,6 +300,51 @@ export default function WorkoutSessionPage() {
     await saveLogs();
   };
 
+  const parseJsonSafe = (value: string | null) => {
+    if (!value) return null;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+
+  const loadReport = async () => {
+    if (!sessionId) {
+      return;
+    }
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const data = await apiFetch<ReportDetail>(`/workout-analytics/reports/session/${sessionId}`);
+      setReport(data);
+    } catch (error) {
+      setReport(null);
+      setReportError((error as Error).message);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    if (!sessionId) {
+      return;
+    }
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      await apiFetch('/workout-analytics/reports', {
+        method: 'POST',
+        body: { sessionId },
+      });
+      await loadReport();
+    } catch (error) {
+      setReportError((error as Error).message);
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
   const sessionInfo = sessionDetail?.session;
   const templateExercises = template?.exercises || [];
   const loggedExercises = sessionDetail?.exercises || [];
@@ -373,6 +430,12 @@ export default function WorkoutSessionPage() {
     }
     setEndNotes(sessionInfo.notes || '');
     setEndDifficulty(sessionInfo.perceivedDifficulty || 'MODERATE');
+  }, [sessionInfo]);
+
+  useEffect(() => {
+    if (sessionInfo) {
+      loadReport();
+    }
   }, [sessionInfo]);
 
   if (loading) {
@@ -648,6 +711,90 @@ export default function WorkoutSessionPage() {
               ) : (
                 <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
                   Session ended at {new Date(sessionInfo.endedAt).toLocaleString()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-white/10 bg-card/80">
+            <CardHeader>
+              <CardTitle className="text-white">Workout Report</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Summary generated after your session completes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {reportLoading ? (
+                <div className="text-sm text-muted-foreground">Loading report...</div>
+              ) : report ? (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-muted-foreground">
+                    Generated {new Date(report.generatedAt).toLocaleString()}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Summary</p>
+                      <div className="mt-3 space-y-2 text-sm text-white">
+                        {(() => {
+                          const summary = parseJsonSafe(report.summaryJson) as Record<string, any> | null;
+                          if (!summary) {
+                            return <p className="text-sm text-muted-foreground">Summary unavailable.</p>;
+                          }
+                          return (
+                            <>
+                              <p>Duration: {summary.durationMinutes ?? '—'} min</p>
+                              <p>Total sets: {summary.totalSets ?? summary.sets ?? '—'}</p>
+                              <p>Exercises: {summary.exercisesCompleted ?? summary.totalExercises ?? '—'}</p>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Personal Bests</p>
+                      <div className="mt-3 text-sm text-white">
+                        {(() => {
+                          const pbs = parseJsonSafe(report.pbsJson) as Record<string, any> | null;
+                          if (!pbs) {
+                            return <p className="text-sm text-muted-foreground">No PB data yet.</p>;
+                          }
+                          if (pbs.personalBestsAchieved === false) {
+                            return <p className="text-sm text-muted-foreground">No new personal bests.</p>;
+                          }
+                          if (pbs.count) {
+                            return <p>{pbs.count} personal best(s) achieved.</p>;
+                          }
+                          return <p className="text-sm text-muted-foreground">PB data available.</p>;
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" className="border-white/10 bg-white/5 text-white" onClick={loadReport}>
+                      Refresh Report
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    {reportError
+                      ? `Report unavailable: ${reportError}`
+                      : 'No report generated yet for this session.'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={handleGenerateReport} disabled={reportLoading}>
+                      Generate Report
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="border-white/10 bg-white/5 text-white"
+                      onClick={loadReport}
+                      disabled={reportLoading}
+                    >
+                      Check Again
+                    </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
