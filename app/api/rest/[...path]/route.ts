@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../auth/[...nextauth]/route';
 
+export const runtime = 'nodejs';
+
 const resolveBaseUrl = () => {
   if (process.env.REST_BACKEND_URL) {
     return process.env.REST_BACKEND_URL;
@@ -20,6 +22,7 @@ const resolveBaseUrl = () => {
 };
 
 async function proxyRequest(request: NextRequest) {
+  let targetUrl = '';
   try {
     const session = await getServerSession(authOptions);
     if (!session || !session.accessToken) {
@@ -38,7 +41,7 @@ async function proxyRequest(request: NextRequest) {
     const basePath = base.pathname.replace(/\/+$/, '');
     const apiPath = basePath.endsWith('/api') ? basePath : `${basePath}/api`;
     const fullPath = path ? `${apiPath}/${path}` : apiPath;
-    const targetUrl = `${base.origin}${fullPath}${request.nextUrl.search}`;
+    targetUrl = `${base.origin}${fullPath}${request.nextUrl.search}`;
 
     const headers = new Headers();
     headers.set('Authorization', `Bearer ${session.accessToken}`);
@@ -90,9 +93,15 @@ async function proxyRequest(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('REST proxy failed', {
+      targetUrl,
+      message: error instanceof Error ? error.message : String(error),
+      cause: error instanceof Error && 'cause' in error ? (error as Error & { cause?: unknown }).cause : undefined,
+    });
     return NextResponse.json(
       {
         message: error instanceof Error ? error.message : 'Internal server error',
+        targetUrl,
       },
       { status: 500 }
     );
