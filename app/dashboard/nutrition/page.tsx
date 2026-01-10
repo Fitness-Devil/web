@@ -1,65 +1,9 @@
 'use client';
 
-import { useQuery } from '@apollo/client/react';
-import { gql } from '@apollo/client';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-
-const GET_ACTIVE_MEAL_PLAN = gql`
-  query GetMealPlansForNutrition($userId: String!) {
-    getMealPlans(userId: $userId) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-    }
-  }
-`;
-
-const GET_MEAL_PLAN_DETAILS = gql`
-  query GetMealPlanDetails($id: String!) {
-    getMealPlan(id: $id) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-      avgDailyCalories
-      totalCalories
-      days {
-        id
-        date
-        totalCalories
-        meals {
-          id
-          mealType
-          recipe {
-            id
-            name
-            nutrition {
-              calories
-              protein
-              carbs
-              fats
-            }
-          }
-        }
-      }
-    }
-  }
-`;
-
-const CALCULATE_CALORIES = gql`
-  query CalculateCalories($userId: String) {
-    calculateCalories(userId: $userId) {
-      basalMetabolicRate
-      maintenanceCalories
-      goalCalories
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 interface Meal {
   id: string;
@@ -103,38 +47,46 @@ interface CalorieCalc {
 type ViewMode = 'today' | 'weekly';
 
 export default function NutritionDashboard() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [viewMode, setViewMode] = useState<ViewMode>('today');
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [calorieInfo, setCalorieInfo] = useState<CalorieCalc | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [mealPlanError, setMealPlanError] = useState<Error | null>(null);
 
-  // Get user's meal plans
-  const { data: mealPlansData, loading: plansLoading } = useQuery<{
-    getMealPlans: Array<{ id: string; isActive: boolean }>;
-  }>(GET_ACTIVE_MEAL_PLAN, {
-    variables: { userId: session?.user?.id },
-    skip: !session?.user?.id,
-  });
+  useEffect(() => {
+    const loadNutrition = async () => {
+      if (!session?.user?.id) {
+        setLoading(false);
+        return;
+      }
 
-  // Find active meal plan
-  const activePlan = mealPlansData?.getMealPlans?.find(p => p.isActive);
+      setLoading(true);
+      try {
+        const [plans, calories] = await Promise.all([
+          apiFetch<Array<{ id: string; isActive: boolean }>>(`/meal-plans/user/${session.user.id}`),
+          apiFetch<CalorieCalc>(`/nutrition/calories/${session.user.id}`),
+        ]);
 
-  // Get detailed meal plan data
-  const { data: mealPlanData, loading: mealPlanLoading, error: mealPlanError } = useQuery<{
-    getMealPlan: MealPlan;
-  }>(GET_MEAL_PLAN_DETAILS, {
-    variables: { id: activePlan?.id },
-    skip: !activePlan?.id,
-  });
+        const activePlan = plans?.find(p => p.isActive);
+        if (activePlan?.id) {
+          const planDetails = await apiFetch<MealPlan>(`/meal-plans/${activePlan.id}`);
+          setMealPlan(planDetails);
+        } else {
+          setMealPlan(null);
+        }
 
-  const { data: calorieData, loading: calorieLoading } = useQuery<{
-    calculateCalories: CalorieCalc;
-  }>(CALCULATE_CALORIES, {
-    variables: {
-      userId: session?.user?.id,
-    },
-    skip: !session?.user?.id,
-  });
+        setCalorieInfo(calories);
+        setMealPlanError(null);
+      } catch (fetchError) {
+        setMealPlanError(fetchError as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const loading = plansLoading || mealPlanLoading || calorieLoading;
+    loadNutrition();
+  }, [session?.user?.id]);
 
   if (!session) {
     return (
@@ -174,9 +126,6 @@ export default function NutritionDashboard() {
       </div>
     );
   }
-
-  const mealPlan = mealPlanData?.getMealPlan;
-  const calorieInfo = calorieData?.calculateCalories;
 
   // Get today's date
   const today = new Date().toISOString().split('T')[0];

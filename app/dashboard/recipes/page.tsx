@@ -1,9 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useQuery, useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,46 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const GET_RECIPES = gql`
-  query GetRecipes($limit: Int, $offset: Int, $search: String, $mealType: MealType) {
-    getRecipes(limit: $limit, offset: $offset, search: $search, mealType: $mealType) {
-      id
-      name
-      description
-      nutrition {
-        calories
-        protein
-        carbs
-        fats
-      }
-      mealType
-      imageUrl
-    }
-  }
-`;
-
-const GET_MEAL_PLANS = gql`
-  query GetMealPlans($userId: String!) {
-    getMealPlans(userId: $userId) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-    }
-  }
-`;
-
-const ADD_MEAL_TO_PLAN = gql`
-  mutation AddMealToPlan($input: AddMealInput!) {
-    addMealToPlan(input: $input) {
-      id
-      mealType
-      orderIndex
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 type MealType = 'ALL' | 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
 
@@ -93,36 +52,56 @@ export default function RecipesPage() {
   const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
     null
   );
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [mealPlans, setMealPlans] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [addingMeal, setAddingMeal] = useState(false);
 
-  const { data, loading, error } = useQuery<{ getRecipes: Recipe[] }>(GET_RECIPES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-      search: searchTerm || undefined,
-      mealType: selectedMealType !== 'ALL' ? selectedMealType : undefined,
-    },
-  });
+  const fetchRecipes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<Recipe[] | Recipe>('/recipes', {
+        query: {
+          limit: 100,
+          offset: 0,
+          search: searchTerm || undefined,
+          mealType: selectedMealType !== 'ALL' ? selectedMealType : undefined,
+        },
+      });
+      setRecipes(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [searchTerm, selectedMealType]);
 
-  const { data: mealPlansData } = useQuery<{ getMealPlans: any[] }>(GET_MEAL_PLANS, {
-    variables: { userId: session?.user?.id },
-    skip: !session?.user?.id,
-  });
+  const fetchMealPlans = useCallback(async () => {
+    if (!session?.user?.id) {
+      setMealPlans([]);
+      return;
+    }
 
-  const [addMealToPlan, { loading: addingMeal }] = useMutation(ADD_MEAL_TO_PLAN, {
-    onCompleted: () => {
-      setNotice({ type: 'success', message: 'Recipe added to meal plan.' });
-      setAddToPlanDialogOpen(false);
-      setSelectedRecipe(null);
-      setSelectedPlanId('');
-      setSelectedDate('');
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to add recipe: ${error.message}` });
-    },
-  });
+    try {
+      const data = await apiFetch<any[] | any>(`/meal-plans/user/${session.user.id}`);
+      setMealPlans(Array.isArray(data) ? data : []);
+    } catch (fetchError) {
+      setNotice({
+        type: 'error',
+        message: `Failed to load meal plans: ${(fetchError as Error).message}`,
+      });
+    }
+  }, [session?.user?.id]);
 
-  const recipes = data?.getRecipes || [];
-  const mealPlans = mealPlansData?.getMealPlans || [];
+  useEffect(() => {
+    fetchRecipes();
+  }, [fetchRecipes]);
+
+  useEffect(() => {
+    fetchMealPlans();
+  }, [fetchMealPlans]);
 
   const handleAddToPlan = async () => {
     if (!selectedRecipe || !selectedPlanId || !selectedDate) {
@@ -130,17 +109,27 @@ export default function RecipesPage() {
       return;
     }
 
-    await addMealToPlan({
-      variables: {
-        input: {
-          mealPlanId: selectedPlanId,
+    setAddingMeal(true);
+    try {
+      await apiFetch(`/meal-plans/${selectedPlanId}/meals`, {
+        method: 'POST',
+        body: {
           date: selectedDate,
           recipeId: selectedRecipe.id,
           mealType: selectedMealSlot,
           notes: null,
         },
-      },
-    });
+      });
+      setNotice({ type: 'success', message: 'Recipe added to meal plan.' });
+      setAddToPlanDialogOpen(false);
+      setSelectedRecipe(null);
+      setSelectedPlanId('');
+      setSelectedDate('');
+    } catch (addError) {
+      setNotice({ type: 'error', message: `Failed to add recipe: ${(addError as Error).message}` });
+    } finally {
+      setAddingMeal(false);
+    }
   };
 
   if (loading) {

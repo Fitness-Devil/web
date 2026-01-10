@@ -1,82 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { gql } from '@apollo/client';
-import { useMutation, useQuery } from '@apollo/client/react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InlineNotice } from '@/components/ui/inline-notice';
-
-const GET_USER_VIDEOS = gql`
-  query GetUserVideos($userId: String!) {
-    getUserVideos(userId: $userId) {
-      id
-      filename
-      contentType
-      status
-      storageKey
-      created_at
-      updatedAt
-    }
-  }
-`;
-
-const CREATE_VIDEO_WITH_UPLOAD = gql`
-  mutation CreateVideoWithUpload($input: VideoRequest!) {
-    createVideoWithUpload(input: $input) {
-      video {
-        id
-        filename
-        contentType
-        status
-        storageKey
-        created_at
-        updatedAt
-      }
-      uploadSession {
-        uploadUrl
-        expiresAt
-      }
-    }
-  }
-`;
-
-const UPDATE_VIDEO_STATUS = gql`
-  mutation UpdateVideoStatus($videoId: String!, $status: VideoStatus!) {
-    updateVideoStatus(videoId: $videoId, status: $status) {
-      id
-      status
-    }
-  }
-`;
-
-const CREATE_PLAYBACK_SESSION = gql`
-  mutation CreatePlaybackSession($videoId: String!) {
-    createPlaybackSession(videoId: $videoId) {
-      playbackUrl
-      expiresAt
-    }
-  }
-`;
-
-const GET_VIDEO_METADATA = gql`
-  query GetVideoMetadata($videoId: String!) {
-    getVideoMetadata(videoId: $videoId) {
-      videoId
-      durationMs
-      width
-      height
-      codec
-      bitrate
-      frameRate
-      status
-      errorMessage
-      analyzedAt
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 type VideoItem = {
   id: string;
@@ -98,7 +28,7 @@ type VideoMetadata = {
   frameRate: number | null;
   status: string;
   errorMessage: string | null;
-  analyzedAt: string | null;
+  analyzedAt: string | number | null;
 };
 
 const contentTypeMap: Record<string, 'MP4' | 'QUICKTIME' | 'WEBM' | null> = {
@@ -116,50 +46,55 @@ export default function VideosPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<VideoMetadata | null>(null);
 
   const userId = session?.user?.id;
 
-  const { data, loading, refetch } = useQuery<{ getUserVideos: VideoItem[] }>(GET_USER_VIDEOS, {
-    variables: { userId },
-    skip: !userId,
-  });
+  const fetchVideos = useCallback(async () => {
+    if (!userId) {
+      setVideos([]);
+      setLoading(false);
+      return;
+    }
 
-  const { data: analysisData, loading: analysisLoading } = useQuery<{
-    getVideoMetadata: VideoMetadata | null;
-  }>(GET_VIDEO_METADATA, {
-    variables: { videoId: selectedVideo?.id ?? '' },
-    skip: !selectedVideo?.id,
-  });
+    setLoading(true);
+    try {
+      const data = await apiFetch<VideoItem[]>(`/videos/user/${userId}`);
+      setVideos(data || []);
+    } catch (fetchError) {
+      setNotice({ type: 'error', message: `Failed to load videos: ${(fetchError as Error).message}` });
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
 
-  const [createVideoWithUpload] = useMutation<{
-    createVideoWithUpload: {
-      video: { id: string };
-      uploadSession: { uploadUrl: string };
-    };
-  }>(CREATE_VIDEO_WITH_UPLOAD, {
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to create upload session: ${error.message}` });
-    },
-  });
+  const fetchMetadata = useCallback(async () => {
+    if (!selectedVideo?.id) {
+      setAnalysis(null);
+      return;
+    }
 
-  const [updateVideoStatus] = useMutation(UPDATE_VIDEO_STATUS, {
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to update video status: ${error.message}` });
-    },
-  });
+    setAnalysisLoading(true);
+    try {
+      const data = await apiFetch<VideoMetadata | null>(`/videos/${selectedVideo.id}/metadata`);
+      setAnalysis(data ?? null);
+    } catch (fetchError) {
+      setNotice({ type: 'error', message: `Failed to load analysis: ${(fetchError as Error).message}` });
+    } finally {
+      setAnalysisLoading(false);
+    }
+  }, [selectedVideo?.id]);
 
-  const [createPlaybackSession] = useMutation<{
-    createPlaybackSession: {
-      playbackUrl: string;
-    };
-  }>(CREATE_PLAYBACK_SESSION, {
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to start playback: ${error.message}` });
-    },
-  });
+  useEffect(() => {
+    fetchVideos();
+  }, [fetchVideos]);
 
-  const videos = useMemo(() => data?.getUserVideos || [], [data]);
-  const analysis = analysisData?.getVideoMetadata ?? null;
+  useEffect(() => {
+    fetchMetadata();
+  }, [fetchMetadata]);
 
   const formatDuration = (durationMs: number | null) => {
     if (!durationMs) return '—';
@@ -167,6 +102,13 @@ export default function VideosPage() {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}m ${seconds}s`;
+  };
+
+  const formatDateTime = (value: string | number | null | undefined) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString();
   };
 
   const formatRate = (frameRate: number | null) =>
@@ -194,18 +136,20 @@ export default function VideosPage() {
     setNotice(null);
 
     try {
-      const { data: uploadData } = await createVideoWithUpload({
-        variables: {
-          input: {
-            userId,
-            filename: selectedFile.name,
-            contentType: mappedType,
-          },
+      const uploadData = await apiFetch<{
+        video: { id: string };
+        uploadSession: { uploadUrl: string };
+      }>('/videos', {
+        method: 'POST',
+        body: {
+          userId,
+          filename: selectedFile.name,
+          contentType: mappedType,
         },
       });
 
-      const uploadUrl = uploadData?.createVideoWithUpload?.uploadSession?.uploadUrl;
-      const videoId = uploadData?.createVideoWithUpload?.video?.id;
+      const uploadUrl = uploadData?.uploadSession?.uploadUrl;
+      const videoId = uploadData?.video?.id;
 
       if (!uploadUrl || !videoId) {
         throw new Error('Upload session not available.');
@@ -229,16 +173,16 @@ export default function VideosPage() {
         throw new Error(`Upload failed with status ${uploadResponse.status}`);
       }
 
-      await updateVideoStatus({
-        variables: {
-          videoId,
+      await apiFetch(`/videos/${videoId}/status`, {
+        method: 'PUT',
+        query: {
           status: 'UPLOADED',
         },
       });
 
       setSelectedFile(null);
       setNotice({ type: 'success', message: 'Video uploaded successfully.' });
-      await refetch();
+      await fetchVideos();
     } catch (error: any) {
       setNotice({ type: 'error', message: error.message || 'Video upload failed.' });
     } finally {
@@ -251,10 +195,10 @@ export default function VideosPage() {
     setPlaybackUrl(null);
 
     try {
-      const { data: playbackData } = await createPlaybackSession({
-        variables: { videoId: video.id },
+      const playbackData = await apiFetch<{ playbackUrl: string }>(`/videos/${video.id}/playback`, {
+        method: 'POST',
       });
-      setPlaybackUrl(playbackData?.createPlaybackSession?.playbackUrl || null);
+      setPlaybackUrl(playbackData?.playbackUrl || null);
     } catch (error: any) {
       setNotice({ type: 'error', message: error.message || 'Playback failed.' });
     }
@@ -375,7 +319,7 @@ export default function VideosPage() {
                   {analysis.analyzedAt ? (
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Analyzed</span>
-                      <span>{new Date(analysis.analyzedAt).toLocaleString()}</span>
+                      <span>{formatDateTime(analysis.analyzedAt)}</span>
                     </div>
                   ) : null}
                   {analysis.errorMessage ? (
@@ -423,7 +367,7 @@ export default function VideosPage() {
                   </div>
                   <div className="text-sm text-white">{video.status}</div>
                   <div className="text-sm text-muted-foreground">
-                    {new Date(video.created_at).toLocaleDateString()}
+                    {formatDateTime(video.created_at)}
                   </div>
                   <div className="flex justify-end">
                     <Button

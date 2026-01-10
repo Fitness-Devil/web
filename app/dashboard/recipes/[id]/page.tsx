@@ -2,30 +2,10 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@apollo/client/react';
-import { gql } from '@apollo/client';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
-const GET_RECIPE = gql`
-  query GetRecipe($id: String!) {
-    getRecipe(id: $id) {
-      id
-      name
-      description
-      nutrition {
-        calories
-        protein
-        carbs
-        fats
-      }
-      mealType
-      servings
-      ingredients
-      instructions
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 interface Recipe {
   id: string;
@@ -48,9 +28,28 @@ export default function RecipeDetailPage() {
   const params = useParams();
   const recipeId = params.id as string;
 
-  const { data, loading, error } = useQuery<{ getRecipe: Recipe }>(GET_RECIPE, {
-    variables: { id: recipeId },
-  });
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const loadRecipe = async () => {
+      setLoading(true);
+      try {
+        const data = await apiFetch<Recipe>(`/recipes/${recipeId}`);
+        setRecipe(data);
+        setError(null);
+      } catch (fetchError) {
+        setError(fetchError as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (recipeId) {
+      loadRecipe();
+    }
+  }, [recipeId]);
 
   if (loading) {
     return (
@@ -65,7 +64,7 @@ export default function RecipeDetailPage() {
     );
   }
 
-  if (error || !data?.getRecipe) {
+  if (error || !recipe) {
     return (
       <div className="mx-auto w-full max-w-4xl">
         <Card className="border-white/10 bg-card/80">
@@ -86,8 +85,6 @@ export default function RecipeDetailPage() {
       </div>
     );
   }
-
-  const recipe = data.getRecipe;
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
