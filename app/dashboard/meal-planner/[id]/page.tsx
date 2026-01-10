@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useQuery, useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { InlineNotice } from '@/components/ui/inline-notice';
@@ -26,90 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-const GET_MEAL_PLAN = gql`
-  query GetMealPlan($id: String!) {
-    getMealPlan(id: $id) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-      avgDailyCalories
-      totalCalories
-      days {
-        id
-        date
-        totalCalories
-        meals {
-          id
-          mealType
-          orderIndex
-          notes
-          recipe {
-            id
-            name
-            description
-            nutrition {
-              calories
-              protein
-              carbs
-              fats
-            }
-            mealType
-            imageUrl
-          }
-        }
-      }
-    }
-  }
-`;
-
-const GET_RECIPES = gql`
-  query GetRecipes($limit: Int, $offset: Int, $mealType: MealType) {
-    getRecipes(limit: $limit, offset: $offset, mealType: $mealType) {
-      id
-      name
-      description
-      nutrition {
-        calories
-        protein
-        carbs
-        fats
-      }
-      mealType
-      imageUrl
-    }
-  }
-`;
-
-const ADD_MEAL_TO_PLAN = gql`
-  mutation AddMealToPlan($input: AddMealInput!) {
-    addMealToPlan(input: $input) {
-      id
-      mealType
-      orderIndex
-      notes
-      recipe {
-        id
-        name
-        nutrition {
-          calories
-          protein
-          carbs
-          fats
-        }
-        mealType
-      }
-    }
-  }
-`;
-
-const REMOVE_MEAL_FROM_PLAN = gql`
-  mutation RemoveMealFromPlan($mealId: String!) {
-    removeMealFromPlan(mealId: $mealId)
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 const MEAL_TYPES = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 type MealType = typeof MEAL_TYPES[number];
@@ -156,7 +71,6 @@ interface MealPlan {
 
 export default function MealPlanEditorPage() {
   const params = useParams();
-  const router = useRouter();
   const planId = params.id as string;
 
   const [selectedDay, setSelectedDay] = useState(0);
@@ -168,39 +82,56 @@ export default function MealPlanEditorPage() {
   const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
     null
   );
+  const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [recipesLoading, setRecipesLoading] = useState(false);
+  const [addingMeal, setAddingMeal] = useState(false);
 
-  const { data, loading, error, refetch } = useQuery<{ getMealPlan: MealPlan }>(GET_MEAL_PLAN, {
-    variables: { id: planId },
-  });
+  const fetchMealPlan = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await apiFetch<MealPlan>(`/meal-plans/${planId}`);
+      setMealPlan(data);
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [planId]);
 
-  const { data: recipesData, loading: recipesLoading } = useQuery<{ getRecipes: Recipe[] }>(GET_RECIPES, {
-    variables: {
-      limit: 100,
-      offset: 0,
-      mealType: recipeFilter === 'ALL' ? null : recipeFilter
-    },
-  });
+  const fetchRecipes = useCallback(async () => {
+    setRecipesLoading(true);
+    try {
+      const data = await apiFetch<Recipe[]>('/recipes', {
+        query: {
+          limit: 100,
+          offset: 0,
+          mealType: recipeFilter === 'ALL' ? undefined : recipeFilter,
+        },
+      });
+      setRecipes(data || []);
+    } catch (fetchError) {
+      setNotice({
+        type: 'error',
+        message: `Failed to load recipes: ${(fetchError as Error).message}`,
+      });
+    } finally {
+      setRecipesLoading(false);
+    }
+  }, [recipeFilter]);
 
-  const [addMealToPlan, { loading: addingMeal }] = useMutation(ADD_MEAL_TO_PLAN, {
-    onCompleted: () => {
-      refetch();
-      setAddMealDialogOpen(false);
-      setSelectedRecipeId('');
-      setMealNotes('');
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to add meal: ${error.message}` });
-    },
-  });
+  useEffect(() => {
+    if (planId) {
+      fetchMealPlan();
+    }
+  }, [fetchMealPlan, planId]);
 
-  const [removeMealFromPlan] = useMutation(REMOVE_MEAL_FROM_PLAN, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to remove meal: ${error.message}` });
-    },
-  });
+  useEffect(() => {
+    fetchRecipes();
+  }, [fetchRecipes]);
 
   if (loading) {
     return (
@@ -215,7 +146,7 @@ export default function MealPlanEditorPage() {
     );
   }
 
-  if (error || !data?.getMealPlan) {
+  if (error || !mealPlan) {
     return (
       <div className="mx-auto w-full max-w-6xl">
         <Card className="border-white/10 bg-card/80">
@@ -236,9 +167,6 @@ export default function MealPlanEditorPage() {
       </div>
     );
   }
-
-  const mealPlan = data.getMealPlan;
-  const recipes = recipesData?.getRecipes || [];
 
   if (!mealPlan.days || mealPlan.days.length === 0) {
     return (
@@ -280,24 +208,39 @@ export default function MealPlanEditorPage() {
       return;
     }
 
-    await addMealToPlan({
-      variables: {
-        input: {
-          mealPlanId: planId,
+    setAddingMeal(true);
+    try {
+      await apiFetch(`/meal-plans/${planId}/meals`, {
+        method: 'POST',
+        body: {
           date: currentDay.date,
           recipeId: selectedRecipeId,
           mealType: selectedMealType,
           notes: mealNotes || null,
         },
-      },
-    });
+      });
+      await fetchMealPlan();
+      setAddMealDialogOpen(false);
+      setSelectedRecipeId('');
+      setMealNotes('');
+    } catch (addError) {
+      setNotice({ type: 'error', message: `Failed to add meal: ${(addError as Error).message}` });
+    } finally {
+      setAddingMeal(false);
+    }
   };
 
   const handleRemoveMeal = async (mealId: string) => {
     if (confirm('Are you sure you want to remove this meal?')) {
-      await removeMealFromPlan({
-        variables: { mealId },
-      });
+      try {
+        await apiFetch<boolean>(`/meal-plans/meals/${mealId}`, { method: 'DELETE' });
+        await fetchMealPlan();
+      } catch (removeError) {
+        setNotice({
+          type: 'error',
+          message: `Failed to remove meal: ${(removeError as Error).message}`,
+        });
+      }
     }
   };
 
@@ -305,8 +248,17 @@ export default function MealPlanEditorPage() {
     if (confirm('Are you sure you want to clear all meals from this day?')) {
       const mealIds = currentDay.meals.map(m => m.id);
       for (const mealId of mealIds) {
-        await removeMealFromPlan({ variables: { mealId } });
+        try {
+          await apiFetch<boolean>(`/meal-plans/meals/${mealId}`, { method: 'DELETE' });
+        } catch (removeError) {
+          setNotice({
+            type: 'error',
+            message: `Failed to remove meal: ${(removeError as Error).message}`,
+          });
+          break;
+        }
       }
+      await fetchMealPlan();
     }
   };
 

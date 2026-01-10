@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,18 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InlineNotice } from '@/components/ui/inline-notice';
-
-const CREATE_MEAL_PLAN = gql`
-  mutation CreateMealPlan($input: CreateMealPlanInput!) {
-    createMealPlan(input: $input) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 export default function NewMealPlanPage() {
   const router = useRouter();
@@ -30,37 +17,13 @@ export default function NewMealPlanPage() {
   const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
     null
   );
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
     endDate: '',
     goalCalories: 2200,
     description: '',
-  });
-
-  const [createMealPlan, { loading, error }] = useMutation<{
-    createMealPlan: {
-      id: string;
-      name: string;
-      startDate: string;
-      endDate: string;
-      isActive: boolean;
-    };
-  }>(CREATE_MEAL_PLAN, {
-    onCompleted: (data) => {
-      console.log('Meal plan created:', data.createMealPlan);
-      setNotice({ type: 'success', message: 'Meal plan created successfully.' });
-      // Redirect to the meal planner list
-      router.push('/dashboard/meal-planner');
-    },
-    onError: (error) => {
-      console.error('Error creating meal plan:', error);
-      const errorMsg = error.message.includes('foreign key')
-        ? 'You need to set up your nutrition profile first. Go to Settings → Nutrition Profile.'
-        : error.message;
-      setNotice({ type: 'error', message: `Failed to create meal plan: ${errorMsg}` });
-    },
-    refetchQueries: ['GetMealPlans'], // Refresh the meal plans list
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,18 +35,28 @@ export default function NewMealPlanPage() {
     }
 
     try {
-      await createMealPlan({
-        variables: {
-          input: {
-            userId: session.user.id,
-            name: formData.name,
-            startDate: formData.startDate,
-            endDate: formData.endDate,
-          },
+      setSaving(true);
+      const data = await apiFetch<{ id: string }>('/meal-plans', {
+        method: 'POST',
+        body: {
+          userId: session.user.id,
+          name: formData.name,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
         },
       });
+      console.log('Meal plan created:', data);
+      setNotice({ type: 'success', message: 'Meal plan created successfully.' });
+      router.push('/dashboard/meal-planner');
     } catch (err) {
-      console.error('Mutation error:', err);
+      console.error('Error creating meal plan:', err);
+      const message = (err as Error).message;
+      const errorMsg = message.includes('foreign key')
+        ? 'You need to set up your nutrition profile first. Go to Settings → Nutrition Profile.'
+        : message;
+      setNotice({ type: 'error', message: `Failed to create meal plan: ${errorMsg}` });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -290,9 +263,9 @@ export default function NewMealPlanPage() {
           <Button
             type="submit"
             className="bg-blue-600 hover:bg-blue-700"
-            disabled={!formData.name || !formData.startDate || !formData.endDate || loading}
+            disabled={!formData.name || !formData.startDate || !formData.endDate || saving}
           >
-            {loading ? 'Creating...' : 'Create Meal Plan'}
+            {saving ? 'Creating...' : 'Create Meal Plan'}
           </Button>
         </div>
       </form>

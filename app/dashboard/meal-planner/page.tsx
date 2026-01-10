@@ -1,58 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
+import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { InlineNotice } from '@/components/ui/inline-notice';
-
-const GET_MEAL_PLANS = gql`
-  query GetMealPlans($userId: String!) {
-    getMealPlans(userId: $userId) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-      createdAt
-      updatedAt
-    }
-  }
-`;
-
-const CREATE_MEAL_PLAN = gql`
-  mutation CreateMealPlan($input: CreateMealPlanInput!) {
-    createMealPlan(input: $input) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-    }
-  }
-`;
-
-const UPDATE_MEAL_PLAN = gql`
-  mutation UpdateMealPlan($input: UpdateMealPlanInput!) {
-    updateMealPlan(input: $input) {
-      id
-      name
-      startDate
-      endDate
-      isActive
-    }
-  }
-`;
-
-const DELETE_MEAL_PLAN = gql`
-  mutation DeleteMealPlan($id: String!) {
-    deleteMealPlan(id: $id)
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 interface MealPlan {
   id: string;
@@ -70,96 +25,87 @@ export default function MealPlannerPage() {
   const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
     null
   );
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const { data, loading, error, refetch } = useQuery<{ getMealPlans: MealPlan[] }>(GET_MEAL_PLANS, {
-    variables: {
-      userId: session?.user?.id,
-    },
-    skip: !session?.user?.id,
-  });
+  const fetchMealPlans = useCallback(async () => {
+    if (!session?.user?.id) {
+      setMealPlans([]);
+      setLoading(false);
+      return;
+    }
 
-  const [createMealPlan, { loading: duplicating }] = useMutation<{
-    createMealPlan: {
-      id: string;
-      name: string;
-      startDate: string;
-      endDate: string;
-      isActive: boolean;
-    };
-  }>(CREATE_MEAL_PLAN, {
-    onCompleted: (data) => {
-      refetch();
-      router.push(`/dashboard/meal-planner/${data.createMealPlan.id}`);
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to duplicate meal plan: ${error.message}` });
-    },
-  });
+    setLoading(true);
+    try {
+      const data = await apiFetch<MealPlan[] | MealPlan>(`/meal-plans/user/${session.user.id}`);
+      setMealPlans(Array.isArray(data) ? data : []);
+      setError(null);
+    } catch (fetchError) {
+      setError(fetchError as Error);
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.id]);
 
-  const [updateMealPlan, { loading: updating }] = useMutation<{
-    updateMealPlan: {
-      id: string;
-      name: string;
-      startDate: string;
-      endDate: string;
-      isActive: boolean;
-    };
-  }>(UPDATE_MEAL_PLAN, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to update meal plan: ${error.message}` });
-    },
-  });
-
-  const [deleteMealPlan, { loading: deleting }] = useMutation<{
-    deleteMealPlan: boolean;
-  }>(DELETE_MEAL_PLAN, {
-    onCompleted: () => {
-      refetch();
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to delete meal plan: ${error.message}` });
-    },
-  });
-
-  const mealPlans = data?.getMealPlans || [];
+  useEffect(() => {
+    fetchMealPlans();
+  }, [fetchMealPlans]);
 
   const handleDelete = async (planId: string, planName: string) => {
     if (confirm(`Are you sure you want to delete "${planName}"? This action cannot be undone.`)) {
-      await deleteMealPlan({
-        variables: { id: planId },
-      });
+      setDeleting(true);
+      try {
+        await apiFetch<boolean>(`/meal-plans/${planId}`, { method: 'DELETE' });
+        await fetchMealPlans();
+      } catch (deleteError) {
+        setNotice({
+          type: 'error',
+          message: `Failed to delete meal plan: ${(deleteError as Error).message}`,
+        });
+      } finally {
+        setDeleting(false);
+      }
     }
   };
 
   const handleActivate = async (planId: string) => {
     // First, deactivate all other plans
-    const updatePromises = mealPlans
-      .filter(p => p.isActive && p.id !== planId)
-      .map(p =>
-        updateMealPlan({
-          variables: {
-            input: {
-              id: p.id,
+    setUpdating(true);
+    try {
+      const updatePromises = mealPlans
+        .filter(p => p.isActive && p.id !== planId)
+        .map(p =>
+          apiFetch(`/meal-plans/${p.id}`, {
+            method: 'PUT',
+            body: {
               isActive: false,
             },
-          },
-        })
-      );
+          })
+        );
 
-    await Promise.all(updatePromises);
+      await Promise.all(updatePromises);
 
-    // Then activate the selected plan
-    await updateMealPlan({
-      variables: {
-        input: {
-          id: planId,
+      // Then activate the selected plan
+      await apiFetch(`/meal-plans/${planId}`, {
+        method: 'PUT',
+        body: {
           isActive: true,
         },
-      },
-    });
+      });
+
+      await fetchMealPlans();
+    } catch (updateError) {
+      setNotice({
+        type: 'error',
+        message: `Failed to update meal plan: ${(updateError as Error).message}`,
+      });
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const handleDuplicate = async (plan: MealPlan) => {
@@ -175,16 +121,27 @@ export default function MealPlannerPage() {
     const newStartDate = today.toISOString().split('T')[0];
     const newEndDate = new Date(today.getTime() + duration).toISOString().split('T')[0];
 
-    await createMealPlan({
-      variables: {
-        input: {
+    setDuplicating(true);
+    try {
+      const data = await apiFetch<MealPlan>('/meal-plans', {
+        method: 'POST',
+        body: {
           userId: session.user.id,
           name: `${plan.name} (Copy)`,
           startDate: newStartDate,
           endDate: newEndDate,
         },
-      },
-    });
+      });
+      await fetchMealPlans();
+      router.push(`/dashboard/meal-planner/${data.id}`);
+    } catch (createError) {
+      setNotice({
+        type: 'error',
+        message: `Failed to duplicate meal plan: ${(createError as Error).message}`,
+      });
+    } finally {
+      setDuplicating(false);
+    }
   };
 
   const calculateDays = (start: string, end: string) => {

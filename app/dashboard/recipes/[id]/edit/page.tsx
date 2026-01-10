@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useMutation, useQuery } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,35 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InlineNotice } from '@/components/ui/inline-notice';
-
-const GET_RECIPE = gql`
-  query GetRecipe($id: String!) {
-    getRecipe(id: $id) {
-      id
-      name
-      description
-      nutrition {
-        calories
-        protein
-        carbs
-        fats
-      }
-      mealType
-      servings
-      ingredients
-      instructions
-      imageUrl
-    }
-  }
-`;
-
-const UPDATE_RECIPE = gql`
-  mutation UpdateRecipe($input: UpdateRecipeInput!) {
-    updateRecipe(input: $input) {
-      id
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 
@@ -48,10 +18,8 @@ export default function EditRecipePage() {
   const router = useRouter();
   const params = useParams();
   const recipeId = params.id as string;
-
-  const { data, loading } = useQuery<{ getRecipe: any }>(GET_RECIPE, {
-    variables: { id: recipeId },
-  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -69,31 +37,32 @@ export default function EditRecipePage() {
   );
 
   useEffect(() => {
-    if (!data?.getRecipe) {
-      return;
-    }
-    const recipe = data.getRecipe;
-    setName(recipe.name || '');
-    setDescription(recipe.description || '');
-    setImageUrl(recipe.imageUrl || '');
-    setMealType(recipe.mealType || 'BREAKFAST');
-    setCalories(recipe.nutrition?.calories?.toString() || '');
-    setProtein(recipe.nutrition?.protein?.toString() || '');
-    setCarbs(recipe.nutrition?.carbs?.toString() || '');
-    setFats(recipe.nutrition?.fats?.toString() || '');
-    setServings(recipe.servings?.toString() || '');
-    setIngredients((recipe.ingredients || []).join('\n'));
-    setInstructions((recipe.instructions || []).join('\n'));
-  }, [data]);
+    const loadRecipe = async () => {
+      setLoading(true);
+      try {
+        const recipe = await apiFetch<any>(`/recipes/${recipeId}`);
+        setName(recipe.name || '');
+        setDescription(recipe.description || '');
+        setImageUrl(recipe.imageUrl || '');
+        setMealType(recipe.mealType || 'BREAKFAST');
+        setCalories(recipe.nutrition?.calories?.toString() || '');
+        setProtein(recipe.nutrition?.protein?.toString() || '');
+        setCarbs(recipe.nutrition?.carbs?.toString() || '');
+        setFats(recipe.nutrition?.fats?.toString() || '');
+        setServings(recipe.servings?.toString() || '');
+        setIngredients((recipe.ingredients || []).join('\n'));
+        setInstructions((recipe.instructions || []).join('\n'));
+      } catch (fetchError) {
+        setNotice({ type: 'error', message: `Failed to load recipe: ${(fetchError as Error).message}` });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const [updateRecipe, { loading: saving }] = useMutation(UPDATE_RECIPE, {
-    onCompleted: () => {
-      router.push(`/dashboard/recipes/${recipeId}`);
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to update recipe: ${error.message}` });
-    },
-  });
+    if (recipeId) {
+      loadRecipe();
+    }
+  }, [recipeId]);
 
   const parseLines = (value: string) =>
     value
@@ -104,10 +73,11 @@ export default function EditRecipePage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    await updateRecipe({
-      variables: {
-        input: {
-          id: recipeId,
+    setSaving(true);
+    try {
+      await apiFetch(`/recipes/${recipeId}`, {
+        method: 'PUT',
+        body: {
           name,
           description: description || null,
           imageUrl: imageUrl || null,
@@ -122,8 +92,13 @@ export default function EditRecipePage() {
           ingredients: parseLines(ingredients),
           instructions: parseLines(instructions),
         },
-      },
-    });
+      });
+      router.push(`/dashboard/recipes/${recipeId}`);
+    } catch (saveError) {
+      setNotice({ type: 'error', message: `Failed to update recipe: ${(saveError as Error).message}` });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {

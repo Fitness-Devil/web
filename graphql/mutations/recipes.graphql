@@ -1,0 +1,43 @@
+mutation CreateRecipe($input: CreateRecipeInput!) {
+  createRecipe(input: $input) {
+    id
+    name
+    description
+    nutrition {
+      calories
+      protein
+      carbs
+      fats
+    }
+    mealType
+    servings
+    ingredients
+    instructions
+    imageUrl
+    createdBy
+    createdAt
+    updatedAt
+  }
+}
+
+mutation UpdateRecipe($input: UpdateRecipeInput!) {
+  updateRecipe(input: $input) {
+    id
+    name
+    description
+    nutrition {
+      calories
+      protein
+      carbs
+      fats
+    }
+    mealType
+    servings
+    ingredients
+    instructions
+    imageUrl
+    createdBy
+    createdAt
+    updatedAt
+  }
+}

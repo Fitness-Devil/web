@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useMutation } from '@apollo/client/react';
-import { gql } from '@apollo/client';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,14 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InlineNotice } from '@/components/ui/inline-notice';
-
-const CREATE_RECIPE = gql`
-  mutation CreateRecipe($input: CreateRecipeInput!) {
-    createRecipe(input: $input) {
-      id
-    }
-  }
-`;
+import { apiFetch } from '@/lib/rest-client';
 
 const mealTypes = ['BREAKFAST', 'LUNCH', 'DINNER', 'SNACK'] as const;
 
@@ -30,6 +21,7 @@ export default function NewRecipePage() {
   const [notice, setNotice] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(
     null
   );
+  const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -43,15 +35,6 @@ export default function NewRecipePage() {
   const [ingredients, setIngredients] = useState('');
   const [instructions, setInstructions] = useState('');
 
-  const [createRecipe, { loading }] = useMutation<{ createRecipe: { id: string } }>(CREATE_RECIPE, {
-    onCompleted: (data) => {
-      router.push(`/dashboard/recipes/${data.createRecipe.id}`);
-    },
-    onError: (error) => {
-      setNotice({ type: 'error', message: `Failed to create recipe: ${error.message}` });
-    },
-  });
-
   const parseLines = (value: string) =>
     value
       .split('\n')
@@ -61,9 +44,11 @@ export default function NewRecipePage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    await createRecipe({
-      variables: {
-        input: {
+    setSaving(true);
+    try {
+      const data = await apiFetch<{ id: string }>('/recipes', {
+        method: 'POST',
+        body: {
           name,
           description: description || null,
           imageUrl: imageUrl || null,
@@ -79,8 +64,13 @@ export default function NewRecipePage() {
           ingredients: parseLines(ingredients),
           instructions: parseLines(instructions),
         },
-      },
-    });
+      });
+      router.push(`/dashboard/recipes/${data.id}`);
+    } catch (createError) {
+      setNotice({ type: 'error', message: `Failed to create recipe: ${(createError as Error).message}` });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -174,8 +164,8 @@ export default function NewRecipePage() {
                   Cancel
                 </Button>
               </Link>
-              <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={loading}>
-                {loading ? 'Saving...' : 'Create Recipe'}
+              <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={saving}>
+                {saving ? 'Saving...' : 'Create Recipe'}
               </Button>
             </div>
           </form>

@@ -19,6 +19,8 @@ export function Navigation() {
 
   const navItems = [
     { name: 'Home', href: '/' },
+    { name: 'Workouts', href: '/dashboard/workouts' },
+    { name: 'Exercise Library', href: '/dashboard/exercises' },
     { name: 'Nutrition', href: '/dashboard/nutrition' },
     { name: 'Recipes', href: '/dashboard/recipes' },
     { name: 'Meal Planner', href: '/dashboard/meal-planner' },
