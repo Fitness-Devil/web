@@ -58,6 +58,7 @@ env:
   NEXT_PUBLIC_GRAPHQL_URL: "http://fitness-devil-fitnessdevil-core:8080/graphql"
   REST_BACKEND_URL: "http://fitness-devil-fitnessdevil-core:8080"
   NEXTAUTH_URL: "http://localhost:3000"
+  NEXT_PUBLIC_KEYCLOAK_ISSUER: "http://fitnessdevil-rso.italynorth.cloudapp.azure.com/keycloak/realms/fitnessdevil"
 
 existingSecret:
   name: "frontend-secrets"
