@@ -7,6 +7,7 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.KEYCLOAK_CLIENT_ID!,
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
       issuer: process.env.KEYCLOAK_ISSUER,
+      checks: ['pkce', 'state'],
       authorization: {
         params: {
           scope: 'openid user-info',
@@ -65,4 +66,3 @@ export const authOptions: NextAuthOptions = {
 const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
-
